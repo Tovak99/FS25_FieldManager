@@ -47,7 +47,7 @@
         <text name="fl_work_weeds" text="Weeds"/>
         <text name="fl_work_roll_short" text="Rolling needed"/>
         <text name="fl_work_sow" text="Sowing: %s"/>
-        <text name="fl_title_work" text="WORK"/>
+        <text name="fl_title_work" text="PENDING WORK THIS MONTH"/>
         <text name="fl_wk_col_fruit" text="CROP"/>
         <text name="fl_wk_col_harvest" text="HARVEST"/>
         <text name="fl_wk_col_plow" text="PLOW"/>
@@ -223,7 +223,7 @@
         <text name="fl_ground_state" text="Ground state"/>
         <text name="fl_nothing_special" text="Total"/>
         <text name="fl_page_x" text="Page %d / 4"/>
-        <text name="fl_title_table" text="FIELD TABLE"/>
+        <text name="fl_title_table" text="CROP ROTATION PLANNING"/>
         <text name="fl_col_field" text="FIELD"/>
         <text name="fl_col_area" text="AREA"/>
         <text name="fl_col_yield" text="YIELD"/>
@@ -235,7 +235,7 @@
         <text name="fl_sec_crops" text="FIELD CROPS (PER YEAR)"/>
         <text name="fl_sec_forage" text="FORAGE CROPS (PER YEAR)"/>
         <text name="fl_sec_animal" text="ANIMAL PRODUCTS (PER HOUR)"/>
-        <text name="fl_title_crops" text="CROP OVERVIEW"/>
+        <text name="fl_title_crops" text="YIELD PLANNING"/>
         <text name="fl_col_product" text="CROP / PRODUCT"/>
         <text name="fl_col_this" text="YIELD THIS YEAR"/>
         <text name="fl_col_next" text="YIELD NEXT YEAR (195 % x RF)"/>
@@ -266,7 +266,7 @@
         <text name="fl_pageTitle" text="Field Manager"/>
         <text name="fl_filter_work" text="WORK"/>
         <text name="fl_filter_crops" text="CROPS"/>
-        <text name="fl_filter_cropsgrass" text="CROPS+GRASS"/>
+        <text name="fl_filter_cropsgrass" text="GRASS"/>
         <text name="fl_filter_all" text="ALL"/>
     </texts>
 </l10n>

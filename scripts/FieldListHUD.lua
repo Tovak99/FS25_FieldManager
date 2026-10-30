@@ -41,7 +41,7 @@ local FALLBACK = {
     tip_none = { de = "Keine Arbeiten anstehend", en = "No work pending" },
     tip_amount = { de = "%d Felder · %.1f ha", en = "%d fields · %.1f ha" },
     work_sow = { de = "Aussaat: %s", en = "Sowing: %s" },
-    title_work = { de = "ARBEITEN", en = "WORK" },
+    title_work = { de = "ANSTEHENDE ARBEITEN IN DIESEM MONAT", en = "PENDING WORK THIS MONTH" },
     wk_col_fruit = { de = "FRUCHT", en = "CROP" },
     wk_col_harvest = { de = "ERNTE", en = "HARVEST" },
     wk_col_plow = { de = "PFLÜGEN", en = "PLOW" },
@@ -1076,6 +1076,7 @@ function FieldListHUD:saveData(dir)
         local path = dir .. "/" .. FieldListHUD.SAVE_FILE
         local h = createXMLFile("fieldListHUD", path, "fieldListHUD")
         setXMLInt(h, "fieldListHUD.filter#mode", self.filterMode or 1)
+        setXMLInt(h, "fieldListHUD.filter#tableMode", self.tblFilter or 1)
         setXMLBool(h, "fieldListHUD.settings#rotYield", FieldListHUD.rotYield == true)
         local ids = {}
         for id in pairs(self.store) do table.insert(ids, id) end
@@ -1142,6 +1143,10 @@ function FieldListHUD:loadData(dir)
         local mode = getXMLInt(h, "fieldListHUD.filter#mode")
         if mode ~= nil and mode >= 1 and mode <= #FieldListHUD.FILTERS then
             self.filterMode = mode
+        end
+        local tmode = getXMLInt(h, "fieldListHUD.filter#tableMode")
+        if tmode ~= nil and tmode >= 1 and tmode <= 3 then
+            self.tblFilter = tmode
         end
         local i, count = 0, 0
         while true do
@@ -1719,9 +1724,9 @@ function FieldListHUD.isGrassName(name)
     return name == "GRASS" or name == "MEADOW"
 end
 
--- Passt das Feld zum gewählten Filter? 1 = alle, 2 = mit Frucht oder Gras, 3 = nur Fruchtfelder ohne Gras
-function FieldListHUD:matchesFilter(entry)
-    local mode = self.filterMode or 1
+-- Passt das Feld zum gewählten Filter? 1 = alle, 2 = nur Gras, 3 = nur Fruchtfelder ohne Gras, 4 = Arbeiten
+function FieldListHUD:matchesFilter(entry, modeOverride)
+    local mode = modeOverride or self.filterMode or 1
     if mode == 1 then
         return true
     end
@@ -1736,6 +1741,10 @@ function FieldListHUD:matchesFilter(entry)
     -- Fruchtfeld = jedes genutzte Feld, das kein Gras trägt (auch ohne aktuelle Frucht)
     if mode == 3 then
         return not FieldListHUD.isGrassName(entry.fruitName)
+    end
+    -- Gras: nur Felder mit Gras oder Wiese
+    if mode == 2 then
+        return FieldListHUD.isGrassName(entry.fruitName)
     end
     return true
 end
@@ -3159,11 +3168,16 @@ function FieldListHUD:drawTablePage(L)
     local filterH = 0.026
     local bw, bgap = 0.12, 0.006
     self.filterBtns2 = {}
-    for i, f in ipairs(FieldListHUD.FILTERS) do
-        table.insert(self.filterBtns2, {
-            mode = f.mode, label = f.label,
-            x = x0 + (i - 1) * (bw + bgap), y = L.ay + L.pad, w = bw, h = filterH,
-        })
+    -- Den Filter "Arbeiten" gibt es hier nicht (die Arbeiten stehen auf einer eigenen Seite)
+    local fi = 0
+    for _, f in ipairs(FieldListHUD.FILTERS) do
+        if f.mode ~= 4 then
+            table.insert(self.filterBtns2, {
+                mode = f.mode, label = f.label,
+                x = x0 + fi * (bw + bgap), y = L.ay + L.pad, w = bw, h = filterH,
+            })
+            fi = fi + 1
+        end
     end
     self:drawFilterButtons(self.filterBtns2)
     -- Breite der beiden Planungsknöpfe: Text plus kleiner Rand, beide gleich breit
@@ -3202,7 +3216,11 @@ function FieldListHUD:drawTablePage(L)
     local rowH = 0.042
     local scrollW = 0.006
     local gap = 0.006
-    local fields = self.visible or {}
+    -- Eigener Filter dieser Seite (unabhängig von Seite 1 und 2)
+    local fields = {}
+    for _, e in ipairs(self.fields or {}) do
+        if self:matchesFilter(e, self.tblFilter or 1) then fields[#fields + 1] = e end
+    end
     local bodyH = top - bottom - headH
     local rows = math.max(1, math.floor(bodyH / rowH))
     local t = self.tbl
@@ -3451,7 +3469,14 @@ function FieldListHUD:drawWorkPage(L)
     setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
     setTextBold(true)
     setTextColor(unpack(self.colorTitle))
-    renderText(x0, top, 0.036, T("title_work"))
+    do
+        -- Titel ist lang: Schrift verkleinern, damit er nicht in die Seitenpfeile rechts läuft
+        local tsize = 0.036
+        local tw = getTextWidth(tsize, T("title_work"))
+        local maxW = w0 - 0.30
+        if tw > maxW and tw > 0 then tsize = tsize * maxW / tw end
+        renderText(x0, top, tsize, T("title_work"))
+    end
     setTextBold(false)
     top = top - 0.060
 
@@ -5773,7 +5798,8 @@ end
 -- Zeichnet die Filter-Schaltflächen (Seite 1 und Seite 2)
 function FieldListHUD:drawFilterButtons(btns)
     for _, b in ipairs(btns) do
-        local active = (b.mode == self.filterMode)
+        local effMode = (self.page == 2) and (self.tblFilter or 1) or self.filterMode
+        local active = (b.mode == effMode)
         self:drawFrame(b.x, b.y, b.w, b.h, active and self.colorTileSelected or self.colorTile,
             active and self.colorArea or self.colorBorder)
         local label = b.label
@@ -6149,7 +6175,7 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
         if isDown and button == left then
             for _, b in ipairs(self.filterBtns2 or {}) do
                 if inRect(b, posX, posY) then
-                    self:setFilter(b.mode)
+                    self.tblFilter = b.mode
                     t.offset = 0
                     return true
                 end
@@ -7082,6 +7108,14 @@ FieldListHUD.hudCursor = false
 FieldListHUD.hudEdit = false
 FieldListHUD.hudDrag = nil
 
+-- Maus für das HUD aktiv: eigene Taste (Alt+F) oder ein anderer Mod hat den Mauszeiger eingeschaltet
+function FieldListHUD:isHudMouseActive()
+    if self.hudCursor then return true end
+    local shown = false
+    pcall(function() shown = g_inputBinding ~= nil and g_inputBinding:getShowMouseCursor() == true end)
+    return shown and not (g_gui ~= nil and g_gui:getIsGuiVisible())
+end
+
 function FieldListHUD:setHudCursor(on)
     on = on == true
     if self.hudCursor == on then return end
@@ -7110,6 +7144,10 @@ end
 function FieldListHUD:onHudMouseAction()
     if g_dedicatedServer ~= nil or not self.settings.hud then return end
     if g_gui ~= nil and g_gui:getIsGuiVisible() then return end
+    -- Hat ein anderer Mod den Zeiger schon eingeschaltet, nutzen wir ihn einfach mit und lassen ihn auch an
+    local ext = false
+    pcall(function() ext = not self.hudCursor and g_inputBinding:getShowMouseCursor() == true end)
+    if ext then return end
     self:setHudCursor(not self.hudCursor)
 end
 
@@ -7202,6 +7240,11 @@ function FieldListHUD:draw()
 end
 
 function FieldListHUD:drawHud()
+    local mouseOn = self:isHudMouseActive()
+    if not mouseOn then
+        if self.hudEdit then self:savePlayerSettings() end
+        self.hudEdit, self.hudDrag = false, nil
+    end
     local R = self:hudRects()
     local sc = R.sc
     local fid = self:getHudField()
@@ -7231,8 +7274,8 @@ function FieldListHUD:drawHud()
     setTextBold(true)
     setTextColor(unpack(self.colorTitle))
     local innerW = R.w - pad * 2
-    fitText(R.title.x + pad, R.title.y + R.title.h / 2, 0.018 * sc, string.format(T("hud_title"), #rows), innerW - (self.hudCursor and R.icon.w + pad or 0))
-    if self.hudCursor then
+    fitText(R.title.x + pad, R.title.y + R.title.h / 2, 0.018 * sc, string.format(T("hud_title"), #rows), innerW - (mouseOn and R.icon.w + pad or 0))
+    if mouseOn then
         -- Einstellungs-Symbol; im Bearbeitungsmodus ein Kreuz zum Zurückwechseln
         local ic = R.icon
         local on = self.hudEdit
@@ -7326,7 +7369,7 @@ function FieldListHUD:drawHud()
 end
 
 function FieldListHUD:mouseEvent(posX, posY, isDown, isUp, button)
-    if not self.hudCursor or not self.settings.hud then return end
+    if not self.settings.hud or not self:isHudMouseActive() then return end
     local st = self.settings
     local R = self:hudRects()
     local function inside(r) return posX >= r.x and posX <= r.x + r.w and posY >= r.y and posY <= r.y + r.h end

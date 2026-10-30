@@ -47,7 +47,7 @@
         <text name="fl_work_weeds" text="Unkraut"/>
         <text name="fl_work_roll_short" text="Walzen nötig"/>
         <text name="fl_work_sow" text="Aussaat: %s"/>
-        <text name="fl_title_work" text="ARBEITEN"/>
+        <text name="fl_title_work" text="ANSTEHENDE ARBEITEN IN DIESEM MONAT"/>
         <text name="fl_wk_col_fruit" text="FRUCHT"/>
         <text name="fl_wk_col_harvest" text="ERNTE"/>
         <text name="fl_wk_col_plow" text="PFLÜGEN"/>
@@ -223,7 +223,7 @@
         <text name="fl_ground_state" text="Bodenzustand"/>
         <text name="fl_nothing_special" text="Summe"/>
         <text name="fl_page_x" text="Seite %d / 4"/>
-        <text name="fl_title_table" text="FELDTABELLE"/>
+        <text name="fl_title_table" text="FRUCHTFOLGE-PLANUNG"/>
         <text name="fl_col_field" text="FELD"/>
         <text name="fl_col_area" text="FLÄCHE"/>
         <text name="fl_col_yield" text="ERTRAG"/>
@@ -235,7 +235,7 @@
         <text name="fl_sec_crops" text="FELDFRÜCHTE (PRO JAHR)"/>
         <text name="fl_sec_forage" text="FUTTERPFLANZEN (PRO JAHR)"/>
         <text name="fl_sec_animal" text="TIERERZEUGNISSE (PRO STUNDE)"/>
-        <text name="fl_title_crops" text="FRUCHTÜBERSICHT"/>
+        <text name="fl_title_crops" text="ERTRAGSPLANUNG"/>
         <text name="fl_col_product" text="FRUCHT / PRODUKT"/>
         <text name="fl_col_this" text="ERTRAG DIESES JAHR"/>
         <text name="fl_col_next" text="ERTRAG NÄCHSTES JAHR (195 % x FF)"/>
@@ -266,7 +266,7 @@
         <text name="fl_pageTitle" text="Feld Manager"/>
         <text name="fl_filter_work" text="ARBEITEN"/>
         <text name="fl_filter_crops" text="FRUCHT"/>
-        <text name="fl_filter_cropsgrass" text="FRUCHT+GRAS"/>
+        <text name="fl_filter_cropsgrass" text="GRAS"/>
         <text name="fl_filter_all" text="ALLE"/>
     </texts>
 </l10n>

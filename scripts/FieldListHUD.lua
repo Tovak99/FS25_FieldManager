@@ -409,7 +409,6 @@ function FieldListHUD:tryInstallPage()
                     calPos = i
                 end
             end
-            print("FieldListHUD: ESC-Seiten: " .. table.concat(names, ", ") .. " -> Anbaukalender an Position " .. tostring(calPos))
             if calPos ~= nil then
                 position = calPos + 1
             end
@@ -701,6 +700,15 @@ function FieldListHUD:getStoneInfo(field, id)
     return area, total, raw, counts
 end
 
+-- Erste erntereife Stufe. Bei manchen Früchten (Zuckerrüben: 8 Wachstumsstufen, Erntezustand 11) liegt der Wert hinter der
+-- letzten Wachstumsstufe; die Stufen davor entstehen erst durch Arbeiten wie Kraut schlagen. Dann ist schon die letzte Wachstumsstufe erntereif.
+function FieldListHUD.harvestMinState(ft)
+    local m = ft ~= nil and ft.minHarvestingGrowthState or nil
+    local n = ft ~= nil and ft.numGrowthStates or nil
+    if m ~= nil and n ~= nil and m > n then return n end
+    return m
+end
+
 function FieldListHUD:buildEntry(field, light)
     local entry = {
         id   = self:getFieldNumber(field),
@@ -739,7 +747,7 @@ function FieldListHUD:buildEntry(field, light)
         entry.fruitName    = string.upper(fruitType.name or "")
         if entry.growthState ~= nil and fruitType.minHarvestingGrowthState ~= nil
             and fruitType.maxHarvestingGrowthState ~= nil then
-            entry.harvestReady = entry.growthState >= fruitType.minHarvestingGrowthState
+            entry.harvestReady = entry.growthState >= FieldListHUD.harvestMinState(fruitType)
                 and entry.growthState <= fruitType.maxHarvestingGrowthState
         end
         -- Schnittfrüchte (Gras, Ackergras, Kleegras, Luzerne): im Spiel gibt es 4 Stufen, erntereif erst bei 4/4
@@ -1077,6 +1085,7 @@ function FieldListHUD:saveData(dir)
         local h = createXMLFile("fieldListHUD", path, "fieldListHUD")
         setXMLInt(h, "fieldListHUD.filter#mode", self.filterMode or 1)
         setXMLInt(h, "fieldListHUD.filter#tableMode", self.tblFilter or 1)
+        setXMLInt(h, "fieldListHUD.filter#workMode", self.wkFilter or 4)
         setXMLBool(h, "fieldListHUD.settings#rotYield", FieldListHUD.rotYield == true)
         local ids = {}
         for id in pairs(self.store) do table.insert(ids, id) end
@@ -1143,6 +1152,10 @@ function FieldListHUD:loadData(dir)
         local mode = getXMLInt(h, "fieldListHUD.filter#mode")
         if mode ~= nil and mode >= 1 and mode <= #FieldListHUD.FILTERS then
             self.filterMode = mode
+        end
+        local wmode = getXMLInt(h, "fieldListHUD.filter#workMode")
+        if wmode ~= nil and wmode >= 1 and wmode <= #FieldListHUD.FILTERS then
+            self.wkFilter = wmode
         end
         local tmode = getXMLInt(h, "fieldListHUD.filter#tableMode")
         if tmode ~= nil and tmode >= 1 and tmode <= 3 then
@@ -1373,7 +1386,7 @@ function FieldListHUD:getWorkItemsAll(entry)
     local sprayBlocked = false
     if growing then
         local ftg = g_fruitTypeManager:getFruitTypeByIndex(entry.fruitIndex)
-        local minHarvest = ftg ~= nil and ftg.minHarvestingGrowthState or nil
+        local minHarvest = ftg ~= nil and FieldListHUD.harvestMinState(ftg) or nil
         sprayBlocked = entry.harvestReady == true or (minHarvest ~= nil and entry.growthState >= minHarvest)
     end
     if mi ~= nil and mi.limeRequired and entry.lime ~= nil and entry.lime <= 0 and not limeBlocked then
@@ -3404,24 +3417,29 @@ FieldListHUD.WORK_COLS = {
 function FieldListHUD:getWorkRows()
     local c = self.wkCache
     local now = g_time or 0
-    if c ~= nil and not self.wkDirty and c.mode == self.filterMode and c.sort == (tostring(self.workCol) .. tostring(self.workDir)) and (now - c.t) < 1000 then
+    if c ~= nil and not self.wkDirty and c.mode == (self.wkFilter or 4) and c.sort == (tostring(self.workCol) .. tostring(self.workDir)) and (now - c.t) < 1000 then
         return c.rows
     end
     self.wkDirty = false
     local rows = self:buildWorkRows()
-    self.wkCache = { rows = rows, t = now, mode = self.filterMode, sort = (tostring(self.workCol) .. tostring(self.workDir)) }
+    self.wkCache = { rows = rows, t = now, mode = (self.wkFilter or 4), sort = (tostring(self.workCol) .. tostring(self.workDir)) }
     return rows
 end
 
 function FieldListHUD:buildWorkRows()
     local rows = {}
     -- Arbeiten-Tabelle: im Filter "Arbeiten" auch Felder, auf denen nur zurückgestellte Arbeiten übrig sind
-    local src = self.visible or {}
-    if self.filterMode == 4 then
-        src = {}
-        for _, e in ipairs(self.fields or {}) do
-            if #self:getWorkItems(e, true) > 0 then src[#src + 1] = e end
+    -- Eigener Filter dieser Seite (unabhängig von Seite 1 und 3)
+    local wkMode = self.wkFilter or 4
+    local src = {}
+    for _, e in ipairs(self.fields or {}) do
+        local ok
+        if wkMode == 4 then
+            ok = not e.unused and #self:getWorkItems(e, true) > 0
+        else
+            ok = self:matchesFilter(e, wkMode)
         end
+        if ok then src[#src + 1] = e end
     end
     for _, e in ipairs(src) do
         local items = self:getWorkItems(e, true)
@@ -4029,6 +4047,16 @@ function FieldListHUD:getHarvestMonthText(fruitName, mode, kind, fieldId)
             for _, wnd in ipairs(windows) do
                 if wnd[2] >= cur then pick = wnd break end
             end
+            -- Stehende Frucht (noch nicht erntereif): frühester möglicher Monat, nicht die ganze Spanne
+            if kind == "n" then
+                local first = math.max(pick[1], cur)
+                local fe = nil
+                for _, fe2 in ipairs(self.fields or {}) do
+                    if fe2.id == fieldId then fe = fe2 break end
+                end
+                if fe ~= nil and not fe.harvestReady then first = math.max(pick[1], cur + 1) end
+                if first <= pick[2] then pick = { first, first } end
+            end
         end
     end
     local a, b = FieldListHUD.periodMonth(pick[1]), FieldListHUD.periodMonth(pick[2])
@@ -4107,6 +4135,7 @@ function FieldListHUD:simHarvestAbs(ft, ses, fromPeriod, state, checkNow)
     if ft == nil or ses == nil or ses.map == nil or state == nil then return nil end
     local minS, maxS = ft.minHarvestingGrowthState, ft.maxHarvestingGrowthState
     if minS == nil or maxS == nil then return nil end
+    minS = FieldListHUD.harvestMinState(ft)
     local s = state
     if checkNow and s >= minS and s <= maxS and ses.harvest[fromPeriod] then return fromPeriod end
     for k = 1, 36 do
@@ -4743,7 +4772,7 @@ function FieldListHUD:getFruitRowEntry(item)
 end
 
 -- Weg 2: Erzeugnisse aus Tierart, Anzahl und Alter der Tiere (Ausgabekurven der Tierdaten).
--- ANNAHME: Die Kurvenwerte gelten pro Tier und Tag. Die Debug-Zeilen im Log zeigen Rohwerte zum Nachprüfen.
+-- ANNAHME: Die Kurvenwerte gelten pro Tier und Tag.
 function FieldListHUD:getAnimalProductsByAnimals()
     local result = {}
     local ok, err = pcall(function()
@@ -5798,7 +5827,8 @@ end
 -- Zeichnet die Filter-Schaltflächen (Seite 1 und Seite 2)
 function FieldListHUD:drawFilterButtons(btns)
     for _, b in ipairs(btns) do
-        local effMode = (self.page == 2) and (self.tblFilter or 1) or self.filterMode
+        local effMode = self.filterMode
+        if self.page == 2 then effMode = self.tblFilter or 1 elseif self.page == 4 then effMode = self.wkFilter or 4 end
         local active = (b.mode == effMode)
         self:drawFrame(b.x, b.y, b.w, b.h, active and self.colorTileSelected or self.colorTile,
             active and self.colorArea or self.colorBorder)
@@ -6113,7 +6143,8 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
         if isDown and button == left then
             for _, b in ipairs(self.filterBtns4 or {}) do
                 if inRect(b, posX, posY) then
-                    self:setFilter(b.mode)
+                    self.wkFilter = b.mode
+                    self.wkDirty = true
                     t.offset = 0
                     return true
                 end

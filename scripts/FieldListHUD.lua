@@ -3296,6 +3296,11 @@ function FieldListHUD:drawTablePage(L)
                 end
             end
             if colHit then
+                -- Sommerweizen/-gerste zählen wie Weizen/Gerste
+                if nameWanted ~= nil then
+                    nameWanted = string.upper(nameWanted)
+                    nameWanted = FieldListHUD.FRUIT_ALIAS[nameWanted] or nameWanted
+                end
                 local own = (info ~= nil and info.byName ~= nil and nameWanted ~= nil) and info.byName[nameWanted] or nil
                 info = own
                 if info == nil and nameWanted ~= nil then

@@ -72,9 +72,9 @@
         <text name="fl_accept_btn" text="KEEP AS IS (%d)"/>
         <text name="fl_col_prod" text="PROD."/>
         <text name="fl_prod_hint" text="Hover a row: production details (column PROD.)"/>
-        <text name="fl_prod_y1" text="This year: %s of %s covered (%d %%)"/>
-        <text name="fl_prod_y2" text="Next year: %s of %s covered (%d %%)"/>
-        <text name="fl_prod_y3" text="In 2 years: %s of %s covered (%d %%)"/>
+        <text name="fl_prod_y1" text="Harvest this year: %s of %s covered (%d %%)"/>
+        <text name="fl_prod_y2" text="Harvest next year: %s of %s covered (%d %%)"/>
+        <text name="fl_prod_y3" text="Harvest in 2 years: %s of %s covered (%d %%)"/>
         <text name="fl_prod_fld_full" text="  -  this field: yield %s = %d %% of the demand"/>
         <text name="fl_prod_fld_part" text="  -  this field: yield %s, only %s needed (%d %%)"/>
         <text name="fl_prod_fld_over" text="  -  this field: yield %s, not needed"/>
@@ -238,7 +238,7 @@
         <text name="fl_title_crops" text="YIELD PLANNING"/>
         <text name="fl_col_product" text="CROP / PRODUCT"/>
         <text name="fl_col_this" text="YIELD THIS YEAR"/>
-        <text name="fl_col_next" text="YIELD NEXT YEAR (195 % x RF)"/>
+        <text name="fl_col_next" text="YIELD NEXT YEAR"/>
         <text name="fl_col_demand" text="PRODUCTION DEMAND"/>
         <text name="fl_col_diff" text="DIFFERENCE"/>
         <text name="fl_col_stock" text="STOCK"/>
@@ -246,7 +246,7 @@
         <text name="fl_tab_this" text="THIS YEAR"/>
         <text name="fl_tab_next" text="NEXT YEAR"/>
         <text name="fl_tab_in2" text="IN 2 YEARS"/>
-        <text name="fl_col_in2" text="YIELD IN 2 YEARS (195 % x RF)"/>
+        <text name="fl_col_in2" text="YIELD IN 2 YEARS"/>
         <text name="fl_col_short" text="SHORTFALL"/>
         <text name="fl_col_need_area" text="AREA NEEDED"/>
         <text name="fl_pop_input" text="Input"/>
@@ -268,5 +268,41 @@
         <text name="fl_filter_crops" text="CROPS"/>
         <text name="fl_filter_cropsgrass" text="GRASS"/>
         <text name="fl_filter_all" text="ALL"/>
+        <text name="fl_short_p_n2" text="2 yrs ago"/>
+        <text name="fl_short_r_change" text="Cereal/leaf"/>
+        <text name="fl_short_r_cc" text="Cover crop"/>
+        <text name="fl_short_r_late" text="Late harv."/>
+        <text name="fl_short_r_legume" text="Legume"/>
+        <text name="fl_short_p_mono" text="Monocult."/>
+        <text name="fl_month_1" text="Jan"/>
+        <text name="fl_month_2" text="Feb"/>
+        <text name="fl_month_3" text="Mar"/>
+        <text name="fl_month_4" text="Apr"/>
+        <text name="fl_month_5" text="May"/>
+        <text name="fl_month_6" text="Jun"/>
+        <text name="fl_month_7" text="Jul"/>
+        <text name="fl_month_8" text="Aug"/>
+        <text name="fl_month_9" text="Sep"/>
+        <text name="fl_month_10" text="Oct"/>
+        <text name="fl_month_11" text="Nov"/>
+        <text name="fl_month_12" text="Dec"/>
+        <text name="fl_weed_1" text="Small weeds"/>
+        <text name="fl_weed_2" text="Medium weeds"/>
+        <text name="fl_weed_3" text="Fully grown weeds"/>
+        <text name="fl_weed_cell_1" text="small"/>
+        <text name="fl_weed_cell_2" text="medium"/>
+        <text name="fl_weed_cell_3" text="large"/>
+        <text name="fl_weed_tools_1" text="Weeder or hoe"/>
+        <text name="fl_weed_tools_2" text="Hoe"/>
+        <text name="fl_weed_tools_3" text="Spray (herbicide)"/>
+        <text name="fl_weed_hud_1" text="Hoe/weeder"/>
+        <text name="fl_weed_hud_2" text="Hoe"/>
+        <text name="fl_weed_hud_3" text="Spray"/>
+        <text name="fl_prod_fc_head" text="%s: no production demand, yield forecast"/>
+        <text name="fl_prod_fc_this" text="Harvest this year: %s"/>
+        <text name="fl_prod_fc_next" text="Harvest next year: %s"/>
+        <text name="fl_prod_fc_in2" text="Harvest in 2 years: %s"/>
+        <text name="fl_prod_fc_field" text=", of which %s this field"/>
+        <text name="fl_col_bonus_sub" text="(%d %% x RF)"/>
     </texts>
 </l10n>

@@ -9,140 +9,26 @@ FieldListHUD = {}
 FieldListHUD.modName       = g_currentModName
 FieldListHUD.modDirectory  = g_currentModDirectory
 
--- Übersetzungen: Texte stehen in l10n/translation_*.xml (Schlüssel mit Präfix "fl_")
--- Ersatztexte, falls eine ältere Sprachdatei im Spiel liegt (Schlüssel fehlt dort)
-local FALLBACK = {
-    pop_demand_h = { de = "BEDARF PRO STUNDE", en = "DEMAND PER HOUR" },
-    wk_post_hint = { de = "Klick auf eine Arbeit: auf nächsten Monat verschieben (grau = zurückgestellt, Klick holt sie zurück)", en = "Click a task: postpone to next month (grey = postponed, click to bring back)" },
-    wk_post_tip = { de = "Klick: auf nächsten Monat verschieben", en = "Click: postpone to next month" },
-    wk_post_on = { de = "Bis nächsten Monat zurückgestellt", en = "Postponed until next month" },
-    wk_post_back = { de = "Klick: wieder aktivieren", en = "Click: activate again" },
-    hud_title = { de = "OFFENE ARBEITEN (%d)", en = "PENDING WORK (%d)" },
-    hud_nofield = { de = "Nicht auf einem Feld", en = "Not on a field" },
-    hud_nowork = { de = "Keine Arbeiten offen", en = "No work pending" },
-    hud_next = { de = "Folgefrucht: %s", en = "Next crop: %s" },
-    hud_hint = { de = "Titel ziehen = verschieben, Ecke = Größe, Mausrad = scrollen", en = "Drag title = move, corner = resize, wheel = scroll" },
-    input_FM_HUD_MOUSE = { de = "Feld Manager: HUD-Maus ein/aus", en = "Field Manager: HUD mouse on/off" },
-    opt_back = { de = "Zurück", en = "Back" },
-    opt_title = { de = "OPTIONEN", en = "OPTIONS" },
-    opt_sec_rot = { de = "FRUCHTFOLGE", en = "CROP ROTATION" },
-    opt_rot = { de = "Fruchtfolge-Ernte", en = "Crop rotation harvest" },
-    opt_rot_hint = { de = "Die Erntemenge wird mit dem Fruchtfolge-Faktor verrechnet. Gilt auch für die reale Ernte.", en = "The harvest amount is multiplied by the rotation factor. Also applies to the real harvest." },
-    opt_host_only = { de = "Nur der Host kann das ändern.", en = "Only the host can change this." },
-    opt_bonus = { de = "Boni für geplante Felder", en = "Bonuses for planned fields" },
-    opt_bonus_hint = { de = "Angenommener Bonus nur für die Folgefrucht geplanter Felder (Standard 95 %%: gepflügt, gekalkt, 2x gedüngt, unkrautfrei). Planungsertrag: %d %%. Die aktuelle Frucht und die echte Ernte sind davon nicht betroffen.", en = "Assumed bonus only for the next crop of planned fields (default 95 %%: plowed, limed, fertilized twice, weed-free). Planning yield: %d %%. The current crop and the real harvest are not affected." },
-    opt_default = { de = "Standard", en = "Default" },
-    opt_on = { de = "AN", en = "ON" },
-    opt_off = { de = "AUS", en = "OFF" },
-    opt_sec_hud = { de = "HUD", en = "HUD" },
-    opt_hud = { de = "HUD-Fenster", en = "HUD window" },
-    opt_hud_hint = { de = "Zeigt im Spiel eine Liste aller Felder mit offenen Arbeiten, dein aktuelles Feld ist hervorgehoben. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe.", en = "Shows an in-game list of all fields with pending work, your current field is highlighted. Press Alt+F (rebindable) to enable the mouse; the settings icon in the title opens edit mode for moving and resizing." },
-    tip_title = { de = "ANSTEHENDE ARBEITEN", en = "PENDING WORK" },
-    tip_none = { de = "Keine Arbeiten anstehend", en = "No work pending" },
-    tip_amount = { de = "%d Felder · %.1f ha", en = "%d fields · %.1f ha" },
-    work_sow = { de = "Aussaat: %s", en = "Sowing: %s" },
-    title_work = { de = "ANSTEHENDE ARBEITEN IN DIESEM MONAT", en = "PENDING WORK THIS MONTH" },
-    wk_col_fruit = { de = "FRUCHT", en = "CROP" },
-    wk_col_harvest = { de = "ERNTE", en = "HARVEST" },
-    wk_col_plow = { de = "PFLÜGEN", en = "PLOW" },
-    wk_col_stones = { de = "STEINE", en = "STONES" },
-    wk_col_lime = { de = "KALK", en = "LIME" },
-    wk_col_spray = { de = "DÜNGER", en = "FERTILIZER" },
-    wk_col_weeds = { de = "UNKRAUT", en = "WEEDS" },
-    wk_col_cc = { de = "ZWISCHENFR.", en = "COVER CROP" },
-    wk_col_sow = { de = "AUSSAAT", en = "SOWING" },
-    wk_col_roll = { de = "WALZEN", en = "ROLL" },
-    wk_sum = { de = "SUMME", en = "TOTAL" },
-    wk_fields = { de = "%d Felder", en = "%d fields" },
-    wk_sort_id = { de = "SORT: FELDNUMMER", en = "SORT: FIELD NO." },
-    wk_sort_urgent = { de = "NACH DRINGLICHKEIT", en = "BY URGENCY" },
-    wk_none = { de = "Keine Arbeiten", en = "No work" },
-    confirm_yes = { de = "JA", en = "YES" },
-    confirm_no = { de = "NEIN", en = "NO" },
-    confirm_advance = { de = "Fruchtfolge von Feld %s weiterschieben?", en = "Advance the crop rotation of field %s?" },
-    confirm_advance2 = { de = "Die Folgefrucht wird zur aktuellen Frucht, die bisherige rückt in die Vorfrüchte.", en = "The next crop becomes the current crop, the current one moves into the history." },
-    confirm_plan = { de = "Folgefrüchte automatisch planen?", en = "Plan next crops automatically?" },
-    confirm_plan2 = { de = "Frühere Auto-Vorschläge werden neu berechnet. Felder mit Handwahl bleiben unberührt.", en = "Earlier automatic suggestions are recalculated. Manually chosen fields stay untouched." },
-    prod_hint = { de = "Maus über eine Zeile: Details zur Produktion (Spalte PROD.)", en = "Hover a row: production details (column PROD.)" },
-    col_prod = { de = "PROD.", en = "PROD." },
-    prod_head = { de = "%s: Jahresbedarf %s", en = "%s: yearly demand %s" },
-    prod_y1 = { de = "Dieses Jahr: %s von %s gedeckt (%d %%)", en = "This year: %s of %s covered (%d %%)" },
-    prod_y3 = { de = "In 2 Jahren: %s von %s gedeckt (%d %%)", en = "In 2 years: %s of %s covered (%d %%)" },
-    prod_y2 = { de = "Nächstes Jahr: %s von %s gedeckt (%d %%)", en = "Next year: %s of %s covered (%d %%)" },
-    prod_fld_full = { de = "  –  dieses Feld: Ertrag %s = %d %% des Bedarfs", en = "  -  this field: yield %s = %d %% of the demand" },
-    prod_fld_part = { de = "  –  dieses Feld: Ertrag %s, davon nur %s nötig (%d %%)", en = "  -  this field: yield %s, only %s needed (%d %%)" },
-    prod_fld_over = { de = "  –  dieses Feld: Ertrag %s, nicht nötig", en = "  -  this field: yield %s, not needed" },
-    accept_btn = { de = "FEST ÜBERNEHMEN (%d)", en = "KEEP AS IS (%d)" },
-    confirm_accept = { de = "Automatische Vorschläge übernehmen?", en = "Accept automatic suggestions?" },
-    confirm_accept2 = { de = "Die Folgefrüchte bleiben stehen und werden bei einer erneuten Planung nicht mehr überschrieben.", en = "The next crops stay as they are and are no longer overwritten by a new planning run." },
-    work_cc = { de = "Zwischenfrucht säen: %s", en = "Sow cover crop: %s" },
-    work_cc_short = { de = "Zwischenfrucht säen", en = "Sow cover crop" },
-    work_sow_short = { de = "Aussaat nötig", en = "Sowing needed" },
-    cat_special = { de = "Sonderkultur", en = "Special crop" },
-    cat_perennial = { de = "Dauerkultur", en = "Perennial" },
-    cat_tree = { de = "Gehölz", en = "Trees" },
-    cat_other = { de = "Sonstige", en = "Other" },
-    col_short = { de = "FEHLMENGE", en = "SHORTFALL" },
-    cc_plan = { de = "Zwischenfrucht davor", en = "Cover crop first" },
-    plan_btn = { de = "AUTOMATISCH PLANEN", en = "AUTO PLAN" },
-    plan_done = { de = "%d Felder geplant", en = "%d fields planned" },
-    plan_none = { de = "Keine passende Planung", en = "Nothing to plan" },
-    plan_one_btn = { de = "OPTIMALE FOLGEFRUCHT", en = "BEST NEXT CROP" },
-    plan_one = { de = "Optimal: %s (%s)", en = "Best: %s (%s)" },
-    plan_one_none = { de = "Keine passende Folgefrucht", en = "No suitable next crop" },
-    lvl_p2 = { de = "Sehr gut", en = "Very good" },
-    lvl_p1 = { de = "Gut", en = "Good" },
-    lvl_0 = { de = "Neutral", en = "Neutral" },
-    lvl_m1 = { de = "Mäßig", en = "Fair" },
-    lvl_m2 = { de = "Schlecht", en = "Poor" },
-    lvl_block = { de = "Gesperrt", en = "Blocked" },
-    r_matrix = { de = "Vorfrucht", en = "Previous crop" },
-    r_pause = { de = "Anbaupause", en = "Rotation gap" },
-    r_change = { de = "Halm/Blatt-Wechsel", en = "Cereal/leaf change" },
-    r_legume = { de = "Leguminose davor", en = "Legume before" },
-    r_cc = { de = "Zwischenfrucht", en = "Cover crop" },
-    r_late = { de = "Spätes Räumen", en = "Late harvest" },
-    r_self = { de = "Selbstfolge", en = "Same crop twice" },
-    rate_title = { de = "Bewertung", en = "Rating" },
-    rate_sum = { de = "Summe", en = "Total" },
-    rate_points = { de = "Punkte", en = "Points" },
-    rate_yield = { de = "Ertrag", en = "Yield" },
-    p_n1 = { de = "Vorjahr", en = "Year before" },
-    p_n2 = { de = "Vor-Vorjahr", en = "2 years before" },
-    p_mono = { de = "Monokultur", en = "Monoculture" },
-    p_fallow = { de = "Brache", en = "Fallow" },
-    p_factor = { de = "Fruchtfolge", en = "Rotation" },
-    per_cut_n = { de = " (pro Schnitt, %dx)", en = " (per cut, %dx)" },
-    pop_fields = { de = "Feld", en = "Field" },
-    pop_fruit = { de = "Frucht", en = "Crop" },
-    pop_area = { de = "Fläche", en = "Area" },
-    pop_pct = { de = "Ertrag", en = "Yield" },
-    pop_harvest = { de = "Ernte", en = "Harvest" },
-    pop_now = { de = "jetzt", en = "now" },
-    pop_month = { de = "Erntemonat", en = "Harvest month" },
-    pop_sow = { de = "Aussaat", en = "Sowing" },
-    pop_sown = { de = "gesät", en = "sown" },
-    pop_h_this = { de = "dieses Jahr", en = "this year" },
-    pop_h_next = { de = "nächstes Jahr", en = "next year" },
-    pop_h_2y = { de = "in 2 Jahren", en = "in 2 years" },
-    pop_h_standing = { de = "wächst", en = "growing" },
-    pop_h_planned = { de = "geplant", en = "planned" },
-    pop_more = { de = "... und %d weitere Felder", en = "... and %d more fields" },
-    field_word = { de = "Feld", en = "Field" },
-    h_unknown = { de = "H4 Frucht nicht verfügbar", en = "H4 crop not available" },
-    h_season = { de = "H1 kein Saatfenster", en = "H1 no sowing window" },
-    h_field = { de = "H3 falsche Feldart", en = "H3 wrong field type" },
-    h_cc = { de = "H5 Zwischenfrucht passt nicht", en = "H5 catch crop does not fit" },
-    rot_on = { de = "FRUCHTFOLGE-ERNTE: AN", en = "ROTATION HARVEST: ON" },
-    rot_off = { de = "FRUCHTFOLGE-ERNTE: AUS", en = "ROTATION HARVEST: OFF" },
-    auto_suffix = { de = " (Auto)", en = " (auto)" },
-    cc_none = { de = "Keine Zwischenfrucht", en = "No cover crop" },
-    tab_this = { de = "DIESES JAHR", en = "THIS YEAR" },
-    tab_next = { de = "NÄCHSTES JAHR", en = "NEXT YEAR" },
-    tab_in2 = { de = "IN 2 JAHREN", en = "IN 2 YEARS" },
-    col_in2 = { de = "Ertrag in 2 Jahren", en = "Yield in 2 years" },
-    col_need_area = { de = "BENÖTIGTE FLÄCHE", en = "AREA NEEDED" },
-}
+-- Übersetzungen: alle Texte stehen in l10n/translation_<sprache>.xml (Schlüssel mit Präfix "fl_").
+-- Neue Sprache = neue Datei translation_<code>.xml (Kopie von translation_en.xml übersetzen), kein Code nötig.
+-- Fehlt ein Schlüssel in der aktiven Sprache, wird der Text aus translation_en.xml genommen.
+local enTexts = nil
+local function loadEnglish()
+    enTexts = {}
+    local path = Utils.getFilename("l10n/translation_en.xml", FieldListHUD.modDirectory)
+    local xml = loadXMLFile("fieldManagerEn", path)
+    if xml ~= nil and xml ~= 0 then
+        local i = 0
+        while true do
+            local base = string.format("l10n.texts.text(%d)", i)
+            local name = getXMLString(xml, base .. "#name")
+            if name == nil then break end
+            enTexts[name] = getXMLString(xml, base .. "#text")
+            i = i + 1
+        end
+        delete(xml)
+    end
+end
 
 local function T(key)
     local ok, text = pcall(function()
@@ -151,10 +37,9 @@ local function T(key)
     if ok and type(text) == "string" and text ~= "" and string.sub(text, 1, 8) ~= "Missing " then
         return text
     end
-    local fb = FALLBACK[key]
-    if fb ~= nil then
-        return fb[g_languageShort == "de" and "de" or "en"]
-    end
+    if enTexts == nil then pcall(loadEnglish) end
+    local en = enTexts ~= nil and (enTexts["fl_" .. key] or enTexts[key]) or nil
+    if en ~= nil then return en end
     return key
 end
 FieldListHUD.T = T
@@ -702,6 +587,17 @@ end
 
 -- Erste erntereife Stufe. Bei manchen Früchten (Zuckerrüben: 8 Wachstumsstufen, Erntezustand 11) liegt der Wert hinter der
 -- letzten Wachstumsstufe; die Stufen davor entstehen erst durch Arbeiten wie Kraut schlagen. Dann ist schon die letzte Wachstumsstufe erntereif.
+-- Unkrautgröße aus der Unkrautstufe: 1 klein, 2 mittel, 3 ausgewachsen (Annahme, Rohwerte stehen einmalig im Log)
+FieldListHUD.weedSeen = {}
+function FieldListHUD.weedSize(w)
+    if w == nil or w <= 0 then return 0 end
+    if FieldListHUD.weedSeen[w] == nil then
+        FieldListHUD.weedSeen[w] = true
+        print(string.format("FieldListHUD: Unkrautstufe (Rohwert) %s", tostring(w)))
+    end
+    return math.min(3, math.floor(w))
+end
+
 function FieldListHUD.harvestMinState(ft)
     local m = ft ~= nil and ft.minHarvestingGrowthState or nil
     local n = ft ~= nil and ft.numGrowthStates or nil
@@ -1396,7 +1292,8 @@ function FieldListHUD:getWorkItemsAll(entry)
         table.insert(items, { prio = 5, kind = "spray", cell = string.format("%d/%d", entry.spray or 0, sprayMax), text = T("work_spray"), short = T("work_spray_short") })
     end
     if entry.weed ~= nil and entry.weed > 0 then
-        table.insert(items, { prio = 6, kind = "weeds", cell = tostring(entry.weed), text = T("work_weeds"), short = T("work_weeds") })
+        local ws = FieldListHUD.weedSize(entry.weed)
+        table.insert(items, { prio = ws >= 3 and 3 or 6, kind = "weeds", cell = T("weed_cell_" .. ws), text = T("weed_" .. ws), short = T("weed_hud_" .. ws), cell2 = T("weed_hud_" .. ws) })
     end
     -- Geplante Zwischenfrucht (Ölrettich), noch nicht gesät: Arbeit, solange das Feld leer ist und das Saatfenster offen ist
     do
@@ -2321,11 +2218,10 @@ function FieldListHUD:drawRatingPanel(x, top, w, rating, fruitTitle)
     local pts, pct = {}, {}
     for _, r in ipairs(rating.reasons or {}) do pts[r.key] = (pts[r.key] or 0) + r.v end
     for _, r in ipairs(rating.pct or {}) do pct[r.key] = (pct[r.key] or 0) + r.v end
-    local de = (g_languageShort == "de")
     local SHORT = {
-        p_n2 = de and "Vor-Vorj." or "2 yrs ago", r_change = de and "Halm/Blatt" or "Cereal/leaf",
-        r_cc = de and "Zwischenfr." or "Cover crop", r_late = de and "Sp. Räumen" or "Late harv.",
-        r_legume = de and "Leguminose" or "Legume", p_mono = de and "Monokultur" or "Monocult.",
+        p_n2 = T("short_p_n2"), r_change = T("short_r_change"),
+        r_cc = T("short_r_cc"), r_late = T("short_r_late"),
+        r_legume = T("short_r_legume"), p_mono = T("short_p_mono"),
     }
     local PTS = { r_matrix = true, r_pause = true, r_change = true, r_legume = true, r_cc = true, r_late = true, r_self = true }
     local PCT = { r_matrix = true, p_n1 = true, p_n2 = true, r_pause = true, r_change = true, r_cc = true, p_mono = true, p_fallow = true }
@@ -2769,7 +2665,7 @@ function FieldListHUD:drawDetail(d, entry)
         { T("col_crop"),    entry.fruitTitle or T("no_crop") },
         { T("col_category"), entry.category or "-" },
         { T("col_status"),    self:getStatusText(entry) },
-        { T("col_weeds"),   (entry.weed ~= nil and entry.weed > 0) and string.format(T("level"), entry.weed) or T("none") },
+        { T("col_weeds"),   (entry.weed ~= nil and entry.weed > 0) and T("weed_" .. FieldListHUD.weedSize(entry.weed)) or T("none") },
         { T("col_growth"),  growth .. (entry.harvestReady and T("ready_suffix") or "") },
     }
     local cw = d.w / #cols
@@ -2781,7 +2677,24 @@ function FieldListHUD:drawDetail(d, entry)
         renderText(cx, top - 0.012, 0.011, c[1])
         setTextBold(false)
         setTextColor(unpack(self.colorSub))
-        renderText(cx, top - 0.042, 0.014, c[2])
+        local vs = 0.014
+        if i == 4 and entry.weed ~= nil and entry.weed > 0 then
+            vs = 0.0125
+            local ws = FieldListHUD.weedSize(entry.weed)
+            if ws >= 3 then setTextColor(unpack(self.colorWork)) end
+            local tl = T("weed_tools_" .. ws)
+            local tsz = 0.0095
+            local tw = getTextWidth(tsz, tl)
+            if tw > cw - 0.012 then tsz = tsz * (cw - 0.012) / tw end
+            renderText(cx, top - 0.0535, tsz, tl)
+            setTextColor(unpack(self.colorSub))
+        end
+        if i == 4 and entry.weed ~= nil and entry.weed > 0 and FieldListHUD.weedSize(entry.weed) >= 3 then setTextColor(unpack(self.colorWork)) end
+        do
+            local vw = getTextWidth(vs, c[2])
+            if vw > cw - 0.012 then vs = vs * (cw - 0.012) / vw end
+        end
+        renderText(cx, top - ((i == 4 and entry.weed ~= nil and entry.weed > 0) and 0.036 or 0.042), vs, c[2])
         if i < #cols then
             self:drawRect(d.x + i * cw, top - rowH + 0.012, 0.0008, rowH - 0.024, self.colorTrack)
         end
@@ -3280,7 +3193,7 @@ function FieldListHUD:drawTablePage(L)
 
     -- Zeilen
     local prodMap = self:getProdMap()
-    local hoverId = nil
+    local hoverId, hoverX = nil, nil
     local altColor = { 0.026, 0.026, 0.026, 1 }
     t.hitRows = {}
     for r = 1, rows do
@@ -3294,6 +3207,7 @@ function FieldListHUD:drawTablePage(L)
             local mx, my = self.mouseX, self.mouseY
             if mx ~= nil and mx >= x0 and mx <= x0 + tableW and my >= ry and my <= ry + rowH then
                 hoverId = e.id
+                hoverX = mx
             end
         end
         if rectsOverlap({ x = x0, y = ry, w = tableW, h = rowH }, self.tipRectPrev) then
@@ -3365,10 +3279,35 @@ function FieldListHUD:drawTablePage(L)
     self:drawFrame(x0, infoY, w0, infoH, self.colorTile, self.colorBorder)
     do
         local info = hoverId ~= nil and prodMap[hoverId] or nil
+        local fcLines = nil
+        if hoverId ~= nil and hoverX ~= nil then
+            -- Maus über "Folgefrucht" = Werte der Folgefrucht, über "Aktuell" = Werte der aktuellen Frucht,
+            -- Vorfrüchte = nichts, sonst die Frucht mit der besten Deckung
+            local he = nil
+            for _, fe in ipairs(fields) do if fe.id == hoverId then he = fe break end end
+            local nameWanted, colHit = nil, false
+            if he ~= nil then
+                if hoverX >= cols[5].x and hoverX < cols[5].x + cols[5].w then
+                    nameWanted, colHit = self:getRecord(he.id).next, true
+                elseif hoverX >= cols[6].x and hoverX < cols[6].x + cols[6].w then
+                    nameWanted, colHit = he.fruitName, true
+                elseif hoverX >= cols[7].x then
+                    info = nil -- Vorfrüchte: keine Produktionsangaben
+                end
+            end
+            if colHit then
+                local own = (info ~= nil and info.byName ~= nil and nameWanted ~= nil) and info.byName[nameWanted] or nil
+                info = own
+                if info == nil and nameWanted ~= nil then
+                    -- kein Produktionsbedarf: stattdessen die Ertragsprognose im passenden Erntejahr
+                    fcLines = self:getForecastTip(hoverId, nameWanted)
+                end
+            end
+        end
         setTextAlignment(RenderText.ALIGN_LEFT)
         setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
-        if info ~= nil then
-            local lines = self:getProdTip(info)
+        if info ~= nil or fcLines ~= nil then
+            local lines = fcLines or self:getProdTip(info)
             local lh = 0.022
             local ty = infoY + infoH - 0.008 - lh / 2
             for _, ln in ipairs(lines) do
@@ -3640,7 +3579,16 @@ function FieldListHUD:drawWorkPage(L)
                         if tw > maxW then size = size * maxW / tw end
                         setTextAlignment(RenderText.ALIGN_LEFT)
                         setTextColor(unpack(it.postponed and self.colorSub or self.colorTitle))
-                        renderText(dx + dotW + 0.006, ry + rowH / 2, size, it.cell)
+                        local cy = ry + rowH / 2
+                        if it.cell2 ~= nil then cy = cy + 0.0065 end
+                        renderText(dx + dotW + 0.006, cy, size, it.cell)
+                        if it.cell2 ~= nil then
+                            local s2 = 0.0098
+                            local w2 = getTextWidth(s2, it.cell2)
+                            if w2 > maxW then s2 = s2 * maxW / w2 end
+                            setTextColor(unpack(self.colorSub))
+                            renderText(dx + dotW + 0.006, ry + rowH / 2 - 0.0075, s2, it.cell2)
+                        end
                     end
                 else
                     setTextAlignment(RenderText.ALIGN_LEFT)
@@ -3872,16 +3820,53 @@ function FieldListHUD:getProdMap()
             for id in pairs(ids) do
                 local th, nx, i2 = per.this[id], per.next[id], per.in2[id]
                 local state = (th or nx or i2).state
+                local info = { state = state, title = item.title, dem = dem,
+                    totThis = totals.this, totNext = totals.next, totIn2 = totals.in2, this = th, next = nx, in2 = i2 }
                 local old = res[id]
+                -- alle Früchte merken, damit beim Überfahren die Frucht der Zeile angezeigt werden kann
+                local byName = (old ~= nil and old.byName) or {}
+                if item.name ~= nil then byName[item.name] = info end
                 if old == nil or rank[state] > rank[old.state] then
-                    res[id] = { state = state, title = item.title, dem = dem,
-                        totThis = totals.this, totNext = totals.next, totIn2 = totals.in2, this = th, next = nx, in2 = i2 }
+                    res[id] = info
+                else
+                    res[id] = old
                 end
+                res[id].byName = byName
             end
         end
     end
     self.prodMapSrc, self.prodMap = list, res
     return res
+end
+
+-- Ertragsprognose einer Frucht auf einem Feld (wenn es dafür keinen Produktionsbedarf gibt)
+function FieldListHUD:getForecastTip(fieldId, fruitName)
+    local list = self:getPage3ListCached()
+    local lines, title = {}, nil
+    for _, item in ipairs(list or {}) do
+        if item.name == fruitName and item.fields ~= nil and not item.isStraw and not item.isAnimal then
+            title = item.title
+            local cuts = ((item.multiCut or FieldListHUD.MULTI_CUT[item.name]) and item.cuts) or 1
+            for _, mode in ipairs({ "this", "next", "in2" }) do
+                local sum, mine = 0, 0
+                for _, f in ipairs(item.fields) do
+                    if f.mode == mode and f.liters ~= nil and f.liters > 0 then
+                        sum = sum + f.liters * cuts
+                        if f.id == fieldId then mine = mine + f.liters * cuts end
+                    end
+                end
+                if sum > 0 then
+                    local txt = string.format(T("prod_fc_" .. mode), fmtLiters(sum))
+                    if mine > 0 then txt = txt .. string.format(T("prod_fc_field"), fmtLiters(mine)) end
+                    table.insert(lines, { txt, false })
+                end
+            end
+            break
+        end
+    end
+    if #lines == 0 then return nil end
+    table.insert(lines, 1, { string.format(T("prod_fc_head"), tostring(title or fruitName)), true })
+    return lines
 end
 
 function FieldListHUD:getProdTip(info)
@@ -3940,16 +3925,11 @@ end
 -- Erntejahr einer Frucht relativ zum laufenden Jahr (0 = noch dieses Jahr, 1 = nächstes, 2 = übernächstes).
 -- kind "standing": Frucht steht schon; "sow": wird ab jetzt (nächste Saatperiode) gesät.
 -- Ohne Perioden- oder Saisondaten gilt 0 (altes Verhalten).
-FieldListHUD.PERIOD_MONTHS = {
-    de = { "Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez" },
-    en = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" },
-}
 
 -- Periode (1 = März) als Monatsname
 function FieldListHUD.periodMonth(p)
     local m = ((p + 1) % 12) + 1
-    local t = FieldListHUD.PERIOD_MONTHS[g_languageShort == "de" and "de" or "en"]
-    return t[m]
+    return T("month_" .. m)
 end
 
 -- Erntemonat(e) einer Frucht als Text, z. B. "Jul–Aug"; "-" wenn unbekannt
@@ -5481,7 +5461,20 @@ function FieldListHUD:drawFruitPage(L)
         local tw = getTextWidth(hs, c.title)
         local maxW = c.w - 0.012
         if tw > maxW then hs = hs * maxW / tw end
-        renderText(c.x + 0.008, top - headH / 2, hs, c.title)
+        if c.sub ~= nil then
+            -- Titel in zwei Zeilen: Name oben, Faktor klein darunter
+            renderText(c.x + 0.008, top - headH / 2 + 0.0075, hs, c.title)
+            local ss = 0.0092
+            local sw = getTextWidth(ss, c.sub)
+            if sw > maxW then ss = ss * maxW / sw end
+            setTextBold(false)
+            setTextColor(unpack(self.colorSub))
+            renderText(c.x + 0.008, top - headH / 2 - 0.0075, ss, c.sub)
+            setTextBold(true)
+            setTextColor(unpack(self.colorTitle))
+        else
+            renderText(c.x + 0.008, top - headH / 2, hs, c.title)
+        end
       end
     end
     setTextBold(false)

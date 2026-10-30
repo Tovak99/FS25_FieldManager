@@ -72,9 +72,9 @@
         <text name="fl_accept_btn" text="FEST ÜBERNEHMEN (%d)"/>
         <text name="fl_col_prod" text="PROD."/>
         <text name="fl_prod_hint" text="Maus über eine Zeile: Details zur Produktion (Spalte PROD.)"/>
-        <text name="fl_prod_y1" text="Dieses Jahr: %s von %s gedeckt (%d %%)"/>
-        <text name="fl_prod_y2" text="Nächstes Jahr: %s von %s gedeckt (%d %%)"/>
-        <text name="fl_prod_y3" text="In 2 Jahren: %s von %s gedeckt (%d %%)"/>
+        <text name="fl_prod_y1" text="Ernte dieses Jahr: %s von %s gedeckt (%d %%)"/>
+        <text name="fl_prod_y2" text="Ernte nächstes Jahr: %s von %s gedeckt (%d %%)"/>
+        <text name="fl_prod_y3" text="Ernte in 2 Jahren: %s von %s gedeckt (%d %%)"/>
         <text name="fl_prod_fld_full" text="  –  dieses Feld: Ertrag %s = %d %% des Bedarfs"/>
         <text name="fl_prod_fld_part" text="  –  dieses Feld: Ertrag %s, davon nur %s nötig (%d %%)"/>
         <text name="fl_prod_fld_over" text="  –  dieses Feld: Ertrag %s, nicht nötig"/>
@@ -238,7 +238,7 @@
         <text name="fl_title_crops" text="ERTRAGSPLANUNG"/>
         <text name="fl_col_product" text="FRUCHT / PRODUKT"/>
         <text name="fl_col_this" text="ERTRAG DIESES JAHR"/>
-        <text name="fl_col_next" text="ERTRAG NÄCHSTES JAHR (195 % x FF)"/>
+        <text name="fl_col_next" text="ERTRAG NÄCHSTES JAHR"/>
         <text name="fl_col_demand" text="BEDARF PRODUKTIONEN"/>
         <text name="fl_col_diff" text="DIFFERENZ"/>
         <text name="fl_col_stock" text="LAGERBESTAND"/>
@@ -246,7 +246,7 @@
         <text name="fl_tab_this" text="DIESES JAHR"/>
         <text name="fl_tab_next" text="NÄCHSTES JAHR"/>
         <text name="fl_tab_in2" text="IN 2 JAHREN"/>
-        <text name="fl_col_in2" text="ERTRAG IN 2 JAHREN (195 % x FF)"/>
+        <text name="fl_col_in2" text="ERTRAG IN 2 JAHREN"/>
         <text name="fl_col_short" text="FEHLMENGE"/>
         <text name="fl_col_need_area" text="BENÖTIGTE FLÄCHE"/>
         <text name="fl_pop_input" text="Eingang"/>
@@ -268,5 +268,41 @@
         <text name="fl_filter_crops" text="FRUCHT"/>
         <text name="fl_filter_cropsgrass" text="GRAS"/>
         <text name="fl_filter_all" text="ALLE"/>
+        <text name="fl_short_p_n2" text="Vor-Vorj."/>
+        <text name="fl_short_r_change" text="Halm/Blatt"/>
+        <text name="fl_short_r_cc" text="Zwischenfr."/>
+        <text name="fl_short_r_late" text="Sp. Räumen"/>
+        <text name="fl_short_r_legume" text="Leguminose"/>
+        <text name="fl_short_p_mono" text="Monokultur"/>
+        <text name="fl_month_1" text="Jan"/>
+        <text name="fl_month_2" text="Feb"/>
+        <text name="fl_month_3" text="Mär"/>
+        <text name="fl_month_4" text="Apr"/>
+        <text name="fl_month_5" text="Mai"/>
+        <text name="fl_month_6" text="Jun"/>
+        <text name="fl_month_7" text="Jul"/>
+        <text name="fl_month_8" text="Aug"/>
+        <text name="fl_month_9" text="Sep"/>
+        <text name="fl_month_10" text="Okt"/>
+        <text name="fl_month_11" text="Nov"/>
+        <text name="fl_month_12" text="Dez"/>
+        <text name="fl_weed_1" text="Kleines Unkraut"/>
+        <text name="fl_weed_2" text="Mittleres Unkraut"/>
+        <text name="fl_weed_3" text="Ausgewachsenes Unkraut"/>
+        <text name="fl_weed_cell_1" text="klein"/>
+        <text name="fl_weed_cell_2" text="mittel"/>
+        <text name="fl_weed_cell_3" text="groß"/>
+        <text name="fl_weed_tools_1" text="Hacken/Striegeln"/>
+        <text name="fl_weed_tools_2" text="Hacken"/>
+        <text name="fl_weed_tools_3" text="Spritzen"/>
+        <text name="fl_weed_hud_1" text="Hacken/Striegeln"/>
+        <text name="fl_weed_hud_2" text="Hacken"/>
+        <text name="fl_weed_hud_3" text="Spritzen"/>
+        <text name="fl_prod_fc_head" text="%s: kein Produktionsbedarf, Ertragsprognose"/>
+        <text name="fl_prod_fc_this" text="Ernte dieses Jahr: %s"/>
+        <text name="fl_prod_fc_next" text="Ernte nächstes Jahr: %s"/>
+        <text name="fl_prod_fc_in2" text="Ernte in 2 Jahren: %s"/>
+        <text name="fl_prod_fc_field" text=", davon %s dieses Feld"/>
+        <text name="fl_col_bonus_sub" text="(%d %% x FF)"/>
     </texts>
 </l10n>

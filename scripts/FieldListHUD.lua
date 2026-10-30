@@ -7275,8 +7275,11 @@ function FieldListHUD:drawHud()
     if not mouseOn then
         if self.hudEdit then self:savePlayerSettings() end
         self.hudEdit, self.hudDrag = false, nil
+        self.hudHover = false
     end
     local R = self:hudRects()
+    -- Symbol nur zeigen, wenn die Maus aktiv ist und über dem Fenster steht (oder im Bearbeitungsmodus)
+    local showIcon = mouseOn and (self.hudEdit or self.hudHover == true)
     local sc = R.sc
     local fid = self:getHudField()
 
@@ -7305,8 +7308,8 @@ function FieldListHUD:drawHud()
     setTextBold(true)
     setTextColor(unpack(self.colorTitle))
     local innerW = R.w - pad * 2
-    fitText(R.title.x + pad, R.title.y + R.title.h / 2, 0.018 * sc, string.format(T("hud_title"), #rows), innerW - (mouseOn and R.icon.w + pad or 0))
-    if mouseOn then
+    fitText(R.title.x + pad, R.title.y + R.title.h / 2, 0.018 * sc, string.format(T("hud_title"), #rows), innerW - (showIcon and R.icon.w + pad or 0))
+    if showIcon then
         -- Einstellungs-Symbol; im Bearbeitungsmodus ein Kreuz zum Zurückwechseln
         local ic = R.icon
         local on = self.hudEdit
@@ -7400,10 +7403,11 @@ function FieldListHUD:drawHud()
 end
 
 function FieldListHUD:mouseEvent(posX, posY, isDown, isUp, button)
-    if not self.settings.hud or not self:isHudMouseActive() then return end
+    if not self.settings.hud or not self:isHudMouseActive() then self.hudHover = false; return end
     local st = self.settings
     local R = self:hudRects()
     local function inside(r) return posX >= r.x and posX <= r.x + r.w and posY >= r.y and posY <= r.y + r.h end
+    self.hudHover = inside(R)
     if isDown and inside(R) then
         if button == Input.MOUSE_BUTTON_WHEEL_UP then self.hudScroll = (self.hudScroll or 0) - 1 end
         if button == Input.MOUSE_BUTTON_WHEEL_DOWN then self.hudScroll = (self.hudScroll or 0) + 1 end

@@ -140,7 +140,7 @@
         <text name="fl_opt_off" text="OFF"/>
         <text name="fl_opt_sec_hud" text="HUD"/>
         <text name="fl_opt_hud" text="HUD window"/>
-        <text name="fl_opt_hud_hint" text="Shows an in-game window with the pending work of the field you are standing on. Press Alt+F (rebindable) to enable the mouse; the settings icon in the title opens edit mode for moving and resizing."/>
+        <text name="fl_opt_hud_hint" text="Shows an in-game list of all fields with pending work, your current field is highlighted. Press Alt+F (rebindable) to enable the mouse; the settings icon in the title opens edit mode for moving and resizing."/>
         <text name="fl_pop_now" text="now"/>
         <text name="fl_pop_h_this" text="this year"/>
         <text name="fl_pop_h_next" text="next year"/>

@@ -140,7 +140,7 @@
         <text name="fl_opt_off" text="AUS"/>
         <text name="fl_opt_sec_hud" text="HUD"/>
         <text name="fl_opt_hud" text="HUD-Fenster"/>
-        <text name="fl_opt_hud_hint" text="Zeigt im Spiel ein Fenster mit den offenen Arbeiten des Feldes, auf dem du stehst. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe."/>
+        <text name="fl_opt_hud_hint" text="Zeigt im Spiel eine Liste aller Felder mit offenen Arbeiten, dein aktuelles Feld ist hervorgehoben. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe."/>
         <text name="fl_pop_now" text="jetzt"/>
         <text name="fl_pop_h_this" text="dieses Jahr"/>
         <text name="fl_pop_h_next" text="nächstes Jahr"/>

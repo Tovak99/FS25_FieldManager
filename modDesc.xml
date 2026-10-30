@@ -18,6 +18,9 @@ Features:
 - Crop calendar for each field with sowing and harvest months
 - Yield overview: expected harvest this year and next year compared to the demand of your productions, shortage in liters and hectares
 - Marks which fields are needed to cover your production demand
+- Postpone work: click a task on the work page to hide it until next month, click again to bring it back
+- Movable HUD window in the game: list of all fields with pending work, your current field highlighted, tractor symbol on fields with vehicles; move and resize it with the mouse (key Alt+F, rebindable)
+- Options page (settings icon): crop rotation harvest on/off, assumed bonus for planned fields, HUD window on/off
 - Works in multiplayer: the server tracks all farms, players see and plan their own fields
 
 Languages: German, English]]></en>
@@ -30,6 +33,9 @@ Funktionen:
 - Anbaukalender je Feld mit Saat- und Erntemonaten
 - Ertragsübersicht: erwartete Ernte in diesem und im nächsten Jahr im Vergleich zum Bedarf deiner Produktionen, Fehlmenge in Litern und Hektar
 - Markiert, welche Felder zur Deckung des Produktionsbedarfs gebraucht werden
+- Arbeiten verschieben: Klick auf eine Arbeit auf der Arbeiten-Seite blendet sie bis zum nächsten Monat aus, ein erneuter Klick holt sie zurück
+- Verschiebbares HUD-Fenster im Spiel: Liste aller Felder mit offenen Arbeiten, dein aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen auf dem Feld; mit der Maus verschieben und in der Größe ändern (Taste Alt+F, änderbar)
+- Optionsseite (Einstellungs-Symbol): Fruchtfolge-Ernte ein/aus, angenommener Bonus für geplante Felder, HUD-Fenster ein/aus
 - Mehrspielerfähig: Der Server verfolgt alle Höfe, Spieler sehen und planen ihre eigenen Felder
 
 Sprachen: Deutsch, Englisch]]></de>

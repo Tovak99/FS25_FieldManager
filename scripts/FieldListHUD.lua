@@ -36,7 +36,7 @@ local FALLBACK = {
     opt_off = { de = "AUS", en = "OFF" },
     opt_sec_hud = { de = "HUD", en = "HUD" },
     opt_hud = { de = "HUD-Fenster", en = "HUD window" },
-    opt_hud_hint = { de = "Zeigt im Spiel ein Fenster mit den offenen Arbeiten des Feldes, auf dem du stehst. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe.", en = "Shows an in-game window with the pending work of the field you are standing on. Press Alt+F (rebindable) to enable the mouse; the settings icon in the title opens edit mode for moving and resizing." },
+    opt_hud_hint = { de = "Zeigt im Spiel eine Liste aller Felder mit offenen Arbeiten, dein aktuelles Feld ist hervorgehoben. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe.", en = "Shows an in-game list of all fields with pending work, your current field is highlighted. Press Alt+F (rebindable) to enable the mouse; the settings icon in the title opens edit mode for moving and resizing." },
     tip_title = { de = "ANSTEHENDE ARBEITEN", en = "PENDING WORK" },
     tip_none = { de = "Keine Arbeiten anstehend", en = "No work pending" },
     tip_amount = { de = "%d Felder · %.1f ha", en = "%d fields · %.1f ha" },
@@ -352,7 +352,9 @@ function FieldListHUD:update(dt)
     -- Liste einmal pro Sekunde neu aufbauen
     self.timer = self.timer - dt
     if self.timer <= 0 then
-        self.timer = 1000
+        -- Im Leerlauf (kein HUD, Menü zu) reicht ein größerer Takt; Server ohne Oberfläche bleibt bei 1 s
+        local idle = g_dedicatedServer == nil and not self.settings.hud and not (g_gui ~= nil and g_gui:getIsGuiVisible())
+        self.timer = idle and 3000 or 1000
         self:refreshFields()
         self:mpTick()
     end
@@ -1305,15 +1307,28 @@ function FieldListHUD:togglePostpone(id, kind)
     if not found then keep[#keep + 1] = kind .. ":" .. (key + 1) end
     rec.post = #keep > 0 and table.concat(keep, ";") or nil
     self.wkDirty, self.p3Dirty, self.hudRows = true, true, nil
-    if self.markDirtyCaches ~= nil then self:markDirtyCaches() end
+    self:markDirtyCaches()
 end
 
+-- Arbeiten eines Feldes. Die Kacheln fragen das jedes Bild ab, deshalb wird das Ergebnis kurz am Eintrag zwischengespeichert
+-- (höchstens 0,3 s; sofort ungültig, wenn markDirtyCaches/Verschieben die Version erhöhen).
 function FieldListHUD:getWorkItems(entry, withPostponed)
-    local items = self:getWorkItemsAll(entry)
+    local now = g_time or 0
+    local all = entry.wiAll
+    if all == nil or entry.wiVer ~= self.wiVersion or now - (entry.wiTime or 0) > 300 then
+        all = {}
+        for _, it in ipairs(self:getWorkItemsAll(entry)) do
+            it.postponed = it.kind ~= "harvest" and self:isPostponed(entry.id, it.kind) or false
+            all[#all + 1] = it
+        end
+        entry.wiAll, entry.wiVer, entry.wiTime = all, self.wiVersion, now
+    end
+    if withPostponed then
+        return all
+    end
     local out = {}
-    for _, it in ipairs(items) do
-        it.postponed = it.kind ~= "harvest" and self:isPostponed(entry.id, it.kind) or false
-        if withPostponed or not it.postponed then out[#out + 1] = it end
+    for _, it in ipairs(all) do
+        if not it.postponed then out[#out + 1] = it end
     end
     return out
 end
@@ -6946,6 +6961,7 @@ function FieldListHUD:getConnectionFarmId(connection)
 end
 
 function FieldListHUD:markDirtyCaches()
+    self.wiVersion = (self.wiVersion or 0) + 1
     self.p3Dirty = true
     self.wkDirty = true
     self.ratingCache = nil
@@ -7147,9 +7163,9 @@ function FieldListHUD:getHudRows()
     self.hudRowsTime = now
     local rows = {}
     pcall(function()
-        -- Vor dem ersten Öffnen des Menüs ist die Filterliste noch leer
-        if #(self.visible or {}) == 0 and #(self.fields or {}) > 0 then self:applyFilter() end
-        for _, e in ipairs(self.visible or {}) do
+        -- Immer die frische Feldliste (self.fields wird jede Sekunde neu aufgebaut), unabhängig vom Filter im Menü.
+        -- self.visible wäre nur nach dem Öffnen des Menüs aktuell.
+        for _, e in ipairs(self.fields or {}) do
             local items = self:getWorkItems(e)
             if #items > 0 then
                 local best = items[1]

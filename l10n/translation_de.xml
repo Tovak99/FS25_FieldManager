@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n>
+    <texts>
+        <text name="ui_pageFieldOverview" text="Feld Manager"/>
+        <text name="fl_cat_cereal" text="Getreide"/>
+        <text name="fl_cat_maize" text="Mais"/>
+        <text name="fl_cat_oilseed" text="Ölfrucht"/>
+        <text name="fl_cat_legume" text="Hülsenfrucht"/>
+        <text name="fl_cat_vegetable" text="Gemüse"/>
+        <text name="fl_cat_root" text="Hackfrucht"/>
+        <text name="fl_cat_forage" text="Futter"/>
+        <text name="fl_cat_fiber" text="Faserpflanze"/>
+        <text name="fl_cat_special" text="Sonderkultur"/>
+        <text name="fl_cat_perennial" text="Dauerkultur"/>
+        <text name="fl_cat_tree" text="Gehölz"/>
+        <text name="fl_cat_other" text="Sonstige"/>
+        <text name="fl_ground_fallow" text="Brach"/>
+        <text name="fl_ground_stubble" text="Stoppelsturz"/>
+        <text name="fl_ground_cultivated" text="Gegrubbert"/>
+        <text name="fl_ground_seedbed" text="Saatbett"/>
+        <text name="fl_ground_plowed" text="Gepflügt"/>
+        <text name="fl_ground_rolled" text="Gewalzt"/>
+        <text name="fl_ground_ridge" text="Dammkultur"/>
+        <text name="fl_ground_ridgesown" text="Auf Damm gesät"/>
+        <text name="fl_ground_sown" text="Gesät"/>
+        <text name="fl_ground_directsown" text="Direktsaat"/>
+        <text name="fl_ground_planted" text="Gepflanzt"/>
+        <text name="fl_ground_ready" text="Erntereif"/>
+        <text name="fl_ground_harvested" text="Geerntet"/>
+        <text name="fl_ground_grass" text="Gras"/>
+        <text name="fl_ground_mowed" text="Gemäht"/>
+        <text name="fl_status_mustroll" text="Muss gewalzt werden"/>
+        <text name="fl_status_growing" text="Wächst"/>
+        <text name="fl_status_mustplow" text="Muss gepflügt werden"/>
+        <text name="fl_status_unknown" text="Unbekannt"/>
+        <text name="fl_work_plow_short" text="Pflügen nötig"/>
+        <text name="fl_work_stones" text="Steine: "/>
+        <text name="fl_work_stones_present" text="vorhanden"/>
+        <text name="fl_stone_small" text="klein"/>
+        <text name="fl_stone_medium" text="mittel"/>
+        <text name="fl_stone_large" text="groß"/>
+        <text name="fl_work_stones_short" text="Steine sammeln"/>
+        <text name="fl_work_lime" text="Muss gekalkt werden"/>
+        <text name="fl_work_lime_short" text="Kalken nötig"/>
+        <text name="fl_work_spray" text="Muss gedüngt werden"/>
+        <text name="fl_work_spray_short" text="Düngen nötig"/>
+        <text name="fl_work_weeds" text="Unkraut"/>
+        <text name="fl_work_roll_short" text="Walzen nötig"/>
+        <text name="fl_work_sow" text="Aussaat: %s"/>
+        <text name="fl_title_work" text="ARBEITEN"/>
+        <text name="fl_wk_col_fruit" text="FRUCHT"/>
+        <text name="fl_wk_col_harvest" text="ERNTE"/>
+        <text name="fl_wk_col_plow" text="PFLÜGEN"/>
+        <text name="fl_wk_col_stones" text="STEINE"/>
+        <text name="fl_wk_col_lime" text="KALK"/>
+        <text name="fl_wk_col_spray" text="DÜNGER"/>
+        <text name="fl_wk_col_weeds" text="UNKRAUT"/>
+        <text name="fl_wk_col_cc" text="ZWISCHENFR."/>
+        <text name="fl_wk_col_sow" text="AUSSAAT"/>
+        <text name="fl_wk_col_roll" text="WALZEN"/>
+        <text name="fl_wk_sum" text="SUMME"/>
+        <text name="fl_wk_fields" text="%d Felder"/>
+        <text name="fl_wk_sort_id" text="SORT: FELDNUMMER"/>
+        <text name="fl_wk_sort_urgent" text="NACH DRINGLICHKEIT"/>
+        <text name="fl_wk_none" text="Keine Arbeiten"/>
+        <text name="fl_confirm_yes" text="JA"/>
+        <text name="fl_confirm_no" text="NEIN"/>
+        <text name="fl_confirm_advance" text="Fruchtfolge von Feld %s weiterschieben?"/>
+        <text name="fl_confirm_advance2" text="Die Folgefrucht wird zur aktuellen Frucht, die bisherige rückt in die Vorfrüchte."/>
+        <text name="fl_confirm_plan" text="Folgefrüchte automatisch planen?"/>
+        <text name="fl_confirm_plan2" text="Frühere Auto-Vorschläge werden neu berechnet. Felder mit Handwahl bleiben unberührt."/>
+        <text name="fl_accept_btn" text="FEST ÜBERNEHMEN (%d)"/>
+        <text name="fl_col_prod" text="PROD."/>
+        <text name="fl_prod_hint" text="Maus über eine Zeile: Details zur Produktion (Spalte PROD.)"/>
+        <text name="fl_prod_y1" text="Dieses Jahr: %s von %s gedeckt (%d %%)"/>
+        <text name="fl_prod_y2" text="Nächstes Jahr: %s von %s gedeckt (%d %%)"/>
+        <text name="fl_prod_y3" text="In 2 Jahren: %s von %s gedeckt (%d %%)"/>
+        <text name="fl_prod_fld_full" text="  –  dieses Feld: Ertrag %s = %d %% des Bedarfs"/>
+        <text name="fl_prod_fld_part" text="  –  dieses Feld: Ertrag %s, davon nur %s nötig (%d %%)"/>
+        <text name="fl_prod_fld_over" text="  –  dieses Feld: Ertrag %s, nicht nötig"/>
+        <text name="fl_prod_head" text="%s: Jahresbedarf %s"/>
+        <text name="fl_confirm_accept" text="Automatische Vorschläge übernehmen?"/>
+        <text name="fl_confirm_accept2" text="Die Folgefrüchte bleiben stehen und werden bei einer erneuten Planung nicht mehr überschrieben."/>
+        <text name="fl_work_cc" text="Zwischenfrucht säen: %s"/>
+        <text name="fl_work_cc_short" text="Zwischenfrucht säen"/>
+        <text name="fl_work_sow_short" text="Aussaat nötig"/>
+        <text name="fl_tip_title" text="ANSTEHENDE ARBEITEN"/>
+        <text name="fl_tip_none" text="Keine Arbeiten anstehend"/>
+        <text name="fl_tip_amount" text="%d Felder · %.1f ha"/>
+        <text name="fl_tile_growing" text="Wächst %d/%d"/>
+        <text name="fl_head_field" text="FELD %d  |  %.2f HA"/>
+        <text name="fl_tile_field" text="FELD %d"/>
+        <text name="fl_cc_plan" text="Zwischenfrucht davor"/>
+        <text name="fl_cc_none" text="Keine Zwischenfrucht"/>
+        <text name="fl_lvl_p2" text="Sehr gut"/>
+        <text name="fl_lvl_p1" text="Gut"/>
+        <text name="fl_lvl_0" text="Neutral"/>
+        <text name="fl_lvl_m1" text="Mäßig"/>
+        <text name="fl_lvl_m2" text="Schlecht"/>
+        <text name="fl_lvl_block" text="Gesperrt"/>
+        <text name="fl_r_matrix" text="Vorfrucht"/>
+        <text name="fl_r_pause" text="Anbaupause"/>
+        <text name="fl_r_change" text="Halm/Blatt-Wechsel"/>
+        <text name="fl_r_legume" text="Leguminose davor"/>
+        <text name="fl_r_cc" text="Zwischenfrucht"/>
+        <text name="fl_r_late" text="Spätes Räumen"/>
+        <text name="fl_r_self" text="Selbstfolge"/>
+        <text name="fl_rate_title" text="Bewertung"/>
+        <text name="fl_pop_fields" text="Feld"/>
+        <text name="fl_pop_fruit" text="Frucht"/>
+        <text name="fl_pop_area" text="Fläche"/>
+        <text name="fl_pop_pct" text="Ertrag"/>
+        <text name="fl_pop_harvest" text="Ernte"/>
+        <text name="fl_pop_month" text="Erntemonat"/>
+        <text name="fl_pop_sow" text="Aussaat"/>
+        <text name="fl_pop_sown" text="gesät"/>
+        <text name="fl_rate_points" text="Punkte"/>
+        <text name="fl_rate_yield" text="Ertrag"/>
+        <text name="fl_rate_sum" text="Summe"/>
+        <text name="fl_wk_post_hint" text="Klick auf eine Arbeit: auf nächsten Monat verschieben (grau = zurückgestellt, Klick holt sie zurück)"/>
+        <text name="fl_wk_post_tip" text="Klick: auf nächsten Monat verschieben"/>
+        <text name="fl_wk_post_on" text="Bis nächsten Monat zurückgestellt"/>
+        <text name="fl_wk_post_back" text="Klick: wieder aktivieren"/>
+        <text name="fl_hud_title" text="OFFENE ARBEITEN (%d)"/>
+        <text name="fl_hud_nofield" text="Nicht auf einem Feld"/>
+        <text name="fl_hud_nowork" text="Keine Arbeiten offen"/>
+        <text name="fl_hud_next" text="Folgefrucht: %s"/>
+        <text name="fl_hud_hint" text="Titel ziehen = verschieben, Ecke = Größe, Mausrad = scrollen"/>
+        <text name="input_FM_HUD_MOUSE" text="Feld Manager: HUD-Maus ein/aus"/>
+        <text name="fl_opt_back" text="Zurück"/>
+        <text name="fl_opt_title" text="OPTIONEN"/>
+        <text name="fl_opt_sec_rot" text="FRUCHTFOLGE"/>
+        <text name="fl_opt_rot" text="Fruchtfolge-Ernte"/>
+        <text name="fl_opt_rot_hint" text="Die Erntemenge wird mit dem Fruchtfolge-Faktor verrechnet. Gilt auch für die reale Ernte."/>
+        <text name="fl_opt_host_only" text="Nur der Host kann das ändern."/>
+        <text name="fl_opt_bonus" text="Boni für geplante Felder"/>
+        <text name="fl_opt_bonus_hint" text="Angenommener Bonus nur für die Folgefrucht geplanter Felder (Standard 95 %%: gepflügt, gekalkt, 2x gedüngt, unkrautfrei). Planungsertrag: %d %%. Die aktuelle Frucht und die echte Ernte sind davon nicht betroffen."/>
+        <text name="fl_opt_default" text="Standard"/>
+        <text name="fl_opt_on" text="AN"/>
+        <text name="fl_opt_off" text="AUS"/>
+        <text name="fl_opt_sec_hud" text="HUD"/>
+        <text name="fl_opt_hud" text="HUD-Fenster"/>
+        <text name="fl_opt_hud_hint" text="Zeigt im Spiel ein Fenster mit den offenen Arbeiten des Feldes, auf dem du stehst. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe."/>
+        <text name="fl_pop_now" text="jetzt"/>
+        <text name="fl_pop_h_this" text="dieses Jahr"/>
+        <text name="fl_pop_h_next" text="nächstes Jahr"/>
+        <text name="fl_pop_h_2y" text="in 2 Jahren"/>
+        <text name="fl_pop_h_standing" text="wächst"/>
+        <text name="fl_pop_h_planned" text="geplant"/>
+        <text name="fl_pop_more" text="... und %d weitere Felder"/>
+        <text name="fl_field_word" text="Feld"/>
+        <text name="fl_h_unknown" text="H4 Frucht nicht verfügbar"/>
+        <text name="fl_h_season" text="H1 kein Saatfenster"/>
+        <text name="fl_h_field" text="H3 falsche Feldart"/>
+        <text name="fl_h_cc" text="H5 Zwischenfrucht passt nicht"/>
+        <text name="fl_rot_on" text="FRUCHTFOLGE-ERNTE: AN"/>
+        <text name="fl_rot_off" text="FRUCHTFOLGE-ERNTE: AUS"/>
+        <text name="fl_p_n1" text="Vorjahr"/>
+        <text name="fl_p_n2" text="Vor-Vorjahr"/>
+        <text name="fl_p_mono" text="Monokultur"/>
+        <text name="fl_p_fallow" text="Brache"/>
+        <text name="fl_p_factor" text="Fruchtfolge"/>
+        <text name="fl_auto_suffix" text=" (Auto)"/>
+        <text name="fl_plan_btn" text="AUTOMATISCH PLANEN"/>
+        <text name="fl_plan_done" text="%d Felder geplant"/>
+        <text name="fl_plan_none" text="Keine passende Planung"/>
+        <text name="fl_plan_one_btn" text="OPTIMALE FOLGEFRUCHT"/>
+        <text name="fl_plan_one" text="Optimal: %s (%s)"/>
+        <text name="fl_plan_one_none" text="Keine passende Folgefrucht"/>
+        <text name="fl_unused" text="Ungenutzt"/>
+        <text name="fl_no_crop_on_field" text="Keine Frucht auf dem Feld"/>
+        <text name="fl_no_crop" text="Keine Frucht"/>
+        <text name="fl_no_selection" text="Keine Auswahl"/>
+        <text name="fl_m1" text="Jan"/>
+        <text name="fl_m2" text="Feb"/>
+        <text name="fl_m3" text="Mär"/>
+        <text name="fl_m4" text="Apr"/>
+        <text name="fl_m5" text="Mai"/>
+        <text name="fl_m6" text="Jun"/>
+        <text name="fl_m7" text="Jul"/>
+        <text name="fl_m8" text="Aug"/>
+        <text name="fl_m9" text="Sep"/>
+        <text name="fl_m10" text="Okt"/>
+        <text name="fl_m11" text="Nov"/>
+        <text name="fl_m12" text="Dez"/>
+        <text name="fl_cal_title" text="AUSSAAT UND ERNTE"/>
+        <text name="fl_cal_choose" text="Frucht wählen, um den Kalender zu sehen"/>
+        <text name="fl_cal_unreadable" text="Saat- und Erntedaten nicht lesbar (siehe log.txt)"/>
+        <text name="fl_cal_sowing" text="Aussaat"/>
+        <text name="fl_cal_harvest" text="Ernte"/>
+        <text name="fl_title_overview" text="FELDÜBERSICHT"/>
+        <text name="fl_no_field_selected" text="Kein Feld ausgewählt"/>
+        <text name="fl_advance" text="Fruchtfolge weiterschieben"/>
+        <text name="fl_sec_history" text="ANBAUGESCHICHTE"/>
+        <text name="fl_box_next" text="FOLGEFRUCHT"/>
+        <text name="fl_box_current" text="AKTUELL"/>
+        <text name="fl_box_prev1" text="VORFRUCHT 1"/>
+        <text name="fl_box_prev2" text="VORFRUCHT 2"/>
+        <text name="fl_box_prev3" text="VORFRUCHT 3"/>
+        <text name="fl_box_prev4" text="VORFRUCHT 4"/>
+        <text name="fl_box_prev5" text="VORFRUCHT 5"/>
+        <text name="fl_box_prev6" text="VORFRUCHT 6"/>
+        <text name="fl_sec_current" text="AKTUELLE FRUCHT"/>
+        <text name="fl_sec_next" text="NÄCHSTE FRUCHT"/>
+        <text name="fl_sec_state" text="AKTUELLER FELDZUSTAND"/>
+        <text name="fl_col_crop" text="FRUCHT"/>
+        <text name="fl_col_category" text="KATEGORIE"/>
+        <text name="fl_col_status" text="STATUS"/>
+        <text name="fl_col_weeds" text="UNKRAUT"/>
+        <text name="fl_col_growth" text="WACHSTUM"/>
+        <text name="fl_level" text="Stufe %d"/>
+        <text name="fl_none" text="Keins"/>
+        <text name="fl_ready_suffix" text=" · erntereif"/>
+        <text name="fl_sec_soil" text="BODEN UND BEHANDLUNG"/>
+        <text name="fl_nitrogen" text="Stickstoff"/>
+        <text name="fl_n_none" text="Nicht gedüngt"/>
+        <text name="fl_n_part" text="Teilweise gedüngt"/>
+        <text name="fl_n_full" text="Vollständig gedüngt"/>
+        <text name="fl_lime_ph" text="Kalk / pH"/>
+        <text name="fl_lime_none" text="Kalk fehlt"/>
+        <text name="fl_lime_part" text="Teilweise Kalk"/>
+        <text name="fl_lime_full" text="Vollständig gekalkt"/>
+        <text name="fl_ground_state" text="Bodenzustand"/>
+        <text name="fl_nothing_special" text="Summe"/>
+        <text name="fl_page_x" text="Seite %d / 4"/>
+        <text name="fl_title_table" text="FELDTABELLE"/>
+        <text name="fl_col_field" text="FELD"/>
+        <text name="fl_col_area" text="FLÄCHE"/>
+        <text name="fl_col_yield" text="ERTRAG"/>
+        <text name="fl_no_fields" text="Keine eigenen Felder vorhanden"/>
+        <text name="fl_no_fields_sel" text="Keine Felder in dieser Auswahl"/>
+        <text name="fl_straw" text="Stroh"/>
+        <text name="fl_per_cut" text=" (pro Schnitt)"/>
+        <text name="fl_per_cut_n" text=" (pro Schnitt, %dx)"/>
+        <text name="fl_sec_crops" text="FELDFRÜCHTE (PRO JAHR)"/>
+        <text name="fl_sec_forage" text="FUTTERPFLANZEN (PRO JAHR)"/>
+        <text name="fl_sec_animal" text="TIERERZEUGNISSE (PRO STUNDE)"/>
+        <text name="fl_title_crops" text="FRUCHTÜBERSICHT"/>
+        <text name="fl_col_product" text="FRUCHT / PRODUKT"/>
+        <text name="fl_col_this" text="ERTRAG DIESES JAHR"/>
+        <text name="fl_col_next" text="ERTRAG NÄCHSTES JAHR (195 % x FF)"/>
+        <text name="fl_col_demand" text="BEDARF PRODUKTIONEN"/>
+        <text name="fl_col_diff" text="DIFFERENZ"/>
+        <text name="fl_col_stock" text="LAGERBESTAND"/>
+        <text name="fl_col_input" text="IN PRODUKTIONEN"/>
+        <text name="fl_tab_this" text="DIESES JAHR"/>
+        <text name="fl_tab_next" text="NÄCHSTES JAHR"/>
+        <text name="fl_tab_in2" text="IN 2 JAHREN"/>
+        <text name="fl_col_in2" text="ERTRAG IN 2 JAHREN (195 % x FF)"/>
+        <text name="fl_col_short" text="FEHLMENGE"/>
+        <text name="fl_col_need_area" text="BENÖTIGTE FLÄCHE"/>
+        <text name="fl_pop_input" text="Eingang"/>
+        <text name="fl_pop_store" text="Lager"/>
+        <text name="fl_pop_output" text="Ausgang"/>
+        <text name="fl_pop_close" text="R oder Klick zum Schließen"/>
+        <text name="fl_pop_prod" text="PRODUKTION"/>
+        <text name="fl_pop_kind" text="ART"/>
+        <text name="fl_pop_amount" text="MENGE"/>
+        <text name="fl_pop_demand" text="BEDARF PRO JAHR"/>
+        <text name="fl_pop_demand_h" text="BEDARF PRO STUNDE"/>
+        <text name="fl_pop_none" text="Keine Produktion nutzt diese Ware."/>
+        <text name="fl_pop_sum_input" text="Eingang gesamt:"/>
+        <text name="fl_pop_sum_store" text="Lager/Ausgang:"/>
+        <text name="fl_no_crops" text="Keine Früchte vorhanden"/>
+        <text name="fl_title_fields" text="FELDER"/>
+        <text name="fl_pageTitle" text="Feld Manager"/>
+        <text name="fl_filter_work" text="ARBEITEN"/>
+        <text name="fl_filter_crops" text="FRUCHT"/>
+        <text name="fl_filter_cropsgrass" text="FRUCHT+GRAS"/>
+        <text name="fl_filter_all" text="ALLE"/>
+    </texts>
+</l10n>

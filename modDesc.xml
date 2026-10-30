@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="90">
+    <author>Tovak</author>
+    <version>1.0.0.0</version>
+
+    <title>
+        <en>Field Manager</en>
+        <de>Feld Manager</de>
+    </title>
+
+    <description>
+        <en><![CDATA[Field Manager adds a new page to the pause menu that gives you the full picture of your farm's fields.
+
+Features:
+- Field overview with crop, growth state, yield bonus and field status
+- Crop rotation: history of previous crops, next crop planning, automatic suggestions with a rating of each candidate
+- Pending work per field: harvest, plowing, stones, lime, fertilizer, weeds, cover crop, sowing, rolling, shown in a sortable table
+- Crop calendar for each field with sowing and harvest months
+- Yield overview: expected harvest this year and next year compared to the demand of your productions, shortage in liters and hectares
+- Marks which fields are needed to cover your production demand
+- Works in multiplayer: the server tracks all farms, players see and plan their own fields
+
+Languages: German, English]]></en>
+        <de><![CDATA[Der Feld Manager fügt dem ESC-Menü eine neue Seite hinzu, die alle Felder deines Hofes im Überblick zeigt.
+
+Funktionen:
+- Feldübersicht mit Frucht, Wachstumsstand, Ertragsbonus und Feldzustand
+- Fruchtfolge: Vorfrüchte, Planung der Folgefrucht, automatische Vorschläge mit Bewertung jedes Kandidaten
+- Anstehende Arbeiten je Feld: Ernte, Pflügen, Steine, Kalk, Dünger, Unkraut, Zwischenfrucht, Aussaat, Walzen, als sortierbare Tabelle
+- Anbaukalender je Feld mit Saat- und Erntemonaten
+- Ertragsübersicht: erwartete Ernte in diesem und im nächsten Jahr im Vergleich zum Bedarf deiner Produktionen, Fehlmenge in Litern und Hektar
+- Markiert, welche Felder zur Deckung des Produktionsbedarfs gebraucht werden
+- Mehrspielerfähig: Der Server verfolgt alle Höfe, Spieler sehen und planen ihre eigenen Felder
+
+Sprachen: Deutsch, Englisch]]></de>
+    </description>
+
+    <iconFilename>icon_FieldManager.dds</iconFilename>
+
+    <multiplayer supported="true"/>
+
+    <l10n filenamePrefix="l10n/translation"/>
+
+    <actions>
+        <action name="FM_HUD_MOUSE" category="ONFOOT VEHICLE" axisType="HALF" ignoreComboMask="false"/>
+    </actions>
+
+    <inputBinding>
+        <actionBinding action="FM_HUD_MOUSE">
+            <binding device="KB_MOUSE_DEFAULT" input="KEY_lalt KEY_f" axisComponent="+" neutralInput="0" index="1"/>
+        </actionBinding>
+    </inputBinding>
+
+    <extraSourceFiles>
+        <sourceFile filename="scripts/FieldListHUDFrame.lua"/>
+        <sourceFile filename="scripts/FieldListHUD.lua"/>
+    </extraSourceFiles>
+</modDesc>

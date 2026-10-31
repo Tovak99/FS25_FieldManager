@@ -304,5 +304,6 @@
         <text name="fl_prod_fc_in2" text="Ernte in 2 Jahren: %s"/>
         <text name="fl_prod_fc_field" text=", davon %s dieses Feld"/>
         <text name="fl_col_bonus_sub" text="(%d %% x FF)"/>
+        <text name="fl_accept_one_btn" text="FEST ÜBERNEHMEN"/>
     </texts>
 </l10n>

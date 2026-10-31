@@ -1256,7 +1256,7 @@ function FieldListHUD:getWorkItemsAll(entry)
     local sprayMax = (fm ~= nil and fm.sprayLevelMaxValue) or 2
     local mi = g_currentMission ~= nil and g_currentMission.missionInfo or nil
 
-    if entry.harvestReady then
+    if entry.harvestReady and not FieldListHUD.isCatchCrop(entry.fruitName) then
         table.insert(items, { prio = 1, kind = "harvest", text = T("ground_ready"), short = T("ground_ready"), harvest = true })
     end
     if self:needsPlowing(entry) then
@@ -2635,7 +2635,28 @@ function FieldListHUD:drawDetail(d, entry)
     end
     local secNextTop = top
     top = self:drawSection(d.x, top, d.w, T("sec_next"))
-    local hoverRating = self:drawRatingHeader(d, secNextTop, self.ratingNow, T("sec_next"), d.x + d.w)
+    -- Button: automatisch geplante Folgefrucht dieses Feldes fest übernehmen
+    local recAcc = self:getRecord(entry.id)
+    local nextRight = d.x + d.w
+    self.hitRects.acceptOne = nil
+    if recAcc.autoNext and recAcc.next ~= nil then
+        local bx, by, bw, bh = d.x + d.w - 0.17, secNextTop - 0.024, 0.17, 0.022
+        self:drawFrame(bx, by, bw, bh, self.colorTile, self.colorArea)
+        local lbl = T("accept_one_btn")
+        local lsz = 0.011
+        local lw = getTextWidth(lsz, lbl)
+        if lw > bw * 0.92 then lsz = lsz * bw * 0.92 / lw end
+        setTextAlignment(RenderText.ALIGN_CENTER)
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        setTextBold(true)
+        setTextColor(unpack(self.colorTitle))
+        renderText(bx + bw / 2, by + bh / 2, lsz, lbl)
+        setTextBold(false)
+        setTextAlignment(RenderText.ALIGN_LEFT)
+        self.hitRects.acceptOne = { x = bx, y = by, w = bw, h = bh }
+        nextRight = bx - 0.012
+    end
+    local hoverRating = self:drawRatingHeader(d, secNextTop, self.ratingNow, T("sec_next"), nextRight)
     local nopt = self:getFruitOptions()[self:getNextPos(entry.id)]
     if hoverRating and self.ratingNow ~= nil then
         top = self:drawRatingPanel(d.x, top, d.w, self.ratingNow, nopt ~= nil and nopt.title or nil)
@@ -6270,6 +6291,11 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
                     self:askConfirm(string.format(T("confirm_advance"), tostring(idA)), T("confirm_advance2"),
                         function() self:advanceFruit(idA) end)
                 end
+                return true
+            end
+            if inRect(hr.acceptOne, posX, posY) and self.selectedId ~= nil then
+                local rcA = self:getRecord(self.selectedId)
+                if rcA.autoNext and rcA.next ~= nil then rcA.autoNext = false end
                 return true
             end
             if inRect(hr.clearNext, posX, posY) and self.selectedId ~= nil then

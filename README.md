@@ -53,6 +53,16 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Detailfenster je Frucht mit Produktionen, Eingängen und allen beteiligten Feldern (Ernte, Fläche, Ertrag, Menge)
 - Weizen/Sommerweizen und Gerste/Sommergerste werden zusammen geführt
 
+### Seite 5: Erntekalender (saisonale Produktion)
+- Eine Zeile je Frucht mit Symbol, Name und Erntezeitraum als Balken, Monate von März bis Februar mit den Jahreszeiten-Symbolen des Spiels
+- Gestrichelte senkrechte Linie in der Mitte des aktuellen Monats
+
+### Saisonale Produktion (Option, Host)
+- Plantagen und Feld-Produktionen (Apfel, Birne, Kirsche, Pflaume, Pfirsich, Mirabelle, Trauben, Beeren, Hopfen, Kürbis, Oliven, Rollrasen, Tannenbäume) produzieren nur in ihrer Saison; Gewächshäuser laufen ganzjährig
+- Die Leistung steigt vom Saisonbeginn bis zur Mitte des ersten Monats von 0 auf 100 % und fällt ab der Mitte des letzten Monats wieder auf 0 %; die Spitze (12 / (Saisonmonate − 0,5)) hält die Jahresmenge etwa gleich
+- Außerhalb der Saison bleibt die Produktion eingeschaltet, es laufen nur keine Zyklen; im Produktionsmenü steht „Außerhalb der Erntezeit“
+- Neue Gebäude werden auch während des Spiels erfasst; der Server entscheidet im Mehrspielermodus
+
 ### HUD-Fenster im Spiel
 - Durchsichtiges Fenster mit allen Feldern und der wichtigsten offenen Arbeit (weitere Arbeiten mit „(+)“), aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen
 - Maus ein/aus mit **Alt+F** (Taste änderbar); ist die Maus durch einen anderen Mod aktiv, nutzt der Mod sie mit
@@ -62,6 +72,7 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Fruchtfolge-Ernte ein/aus (Host)
 - Angenommener Bonus für geplante Felder (Standard 95 %)
 - HUD-Fenster ein/aus
+- Saisonale Produktion ein/aus (Host)
 
 ### Mehrspieler und Technik
 - Server führt die Daten (`fieldManager.xml` im Spielstand), Clients planen über Ereignisse
@@ -83,6 +94,8 @@ Field Manager adds a page to the pause menu and an optional in-game HUD window.
 - **Work page:** pending work per field in a sortable table with its own filter; postpone a task to next month; no harvest task while the cover crop is growing
 - **Crop rotation planning:** rating of next crops, automatic planning, production demand marker, footer with demand coverage and yield forecast per harvest year
 - **Yield planning:** this year, next year and in 2 years vs. production demand, shortage in liters and hectares, detail window with all fields
+- **Harvest calendar (page 5):** one row per fruit with its harvest period, seasons like the game calendar, dashed line for the current month
+- **Seasonal production (option):** plantations and field productions only run in season with a smooth ramp up and down; greenhouses run all year
 - **HUD window:** transparent, movable and resizable, list of fields with pending work, tractor symbol; mouse toggle with Alt+F (rebindable)
-- **Options:** crop rotation harvest, assumed bonus for planned fields, HUD on/off
+- **Options:** crop rotation harvest, assumed bonus for planned fields, HUD on/off, seasonal production on/off
 - **Multiplayer** supported; **languages:** German, English (more can be added with a single `l10n` file)

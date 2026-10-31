@@ -47,6 +47,9 @@
         <text name="fl_work_weeds" text="Unkraut"/>
         <text name="fl_work_roll_short" text="Walzen nötig"/>
         <text name="fl_work_sow" text="Aussaat: %s"/>
+        <text name="fl_season_off" text="Außerhalb der Erntezeit"/>
+        <text name="fl_title_season" text="ERNTEKALENDER  ·  SAISONALE PRODUKTION"/>
+        <text name="fl_season_trees" text="Tannenbäume"/>
         <text name="fl_title_work" text="ANSTEHENDE ARBEITEN IN DIESEM MONAT"/>
         <text name="fl_wk_col_fruit" text="FRUCHT"/>
         <text name="fl_wk_col_harvest" text="ERNTE"/>
@@ -222,7 +225,7 @@
         <text name="fl_lime_full" text="Vollständig gekalkt"/>
         <text name="fl_ground_state" text="Bodenzustand"/>
         <text name="fl_nothing_special" text="Summe"/>
-        <text name="fl_page_x" text="Seite %d / 4"/>
+        <text name="fl_page_x" text="Seite %d / 5"/>
         <text name="fl_title_table" text="FRUCHTFOLGE-PLANUNG"/>
         <text name="fl_col_field" text="FELD"/>
         <text name="fl_col_area" text="FLÄCHE"/>
@@ -305,5 +308,8 @@
         <text name="fl_prod_fc_field" text=", davon %s dieses Feld"/>
         <text name="fl_col_bonus_sub" text="(%d %% x FF)"/>
         <text name="fl_accept_one_btn" text="FEST ÜBERNEHMEN"/>
+        <text name="fl_opt_sec_season" text="SAISONALE PRODUKTION"/>
+        <text name="fl_opt_season" text="Saisonale Produktion"/>
+        <text name="fl_opt_season_hint" text="Plantagen und Feldproduktionen (Kürbis, Erdbeeren, Äpfel usw.) produzieren nur in ihrer Saison, dafür mit höherer Leistung. Gewächshäuser laufen ganzjährig."/>
     </texts>
 </l10n>

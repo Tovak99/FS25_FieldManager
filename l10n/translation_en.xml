@@ -47,6 +47,9 @@
         <text name="fl_work_weeds" text="Weeds"/>
         <text name="fl_work_roll_short" text="Rolling needed"/>
         <text name="fl_work_sow" text="Sowing: %s"/>
+        <text name="fl_season_off" text="Out of harvest season"/>
+        <text name="fl_title_season" text="HARVEST CALENDAR  ·  SEASONAL PRODUCTION"/>
+        <text name="fl_season_trees" text="Christmas trees"/>
         <text name="fl_title_work" text="PENDING WORK THIS MONTH"/>
         <text name="fl_wk_col_fruit" text="CROP"/>
         <text name="fl_wk_col_harvest" text="HARVEST"/>
@@ -222,7 +225,7 @@
         <text name="fl_lime_full" text="Fully limed"/>
         <text name="fl_ground_state" text="Ground state"/>
         <text name="fl_nothing_special" text="Total"/>
-        <text name="fl_page_x" text="Page %d / 4"/>
+        <text name="fl_page_x" text="Page %d / 5"/>
         <text name="fl_title_table" text="CROP ROTATION PLANNING"/>
         <text name="fl_col_field" text="FIELD"/>
         <text name="fl_col_area" text="AREA"/>
@@ -305,5 +308,8 @@
         <text name="fl_prod_fc_field" text=", of which %s this field"/>
         <text name="fl_col_bonus_sub" text="(%d %% x RF)"/>
         <text name="fl_accept_one_btn" text="KEEP AS IS"/>
+        <text name="fl_opt_sec_season" text="SEASONAL PRODUCTION"/>
+        <text name="fl_opt_season" text="Seasonal production"/>
+        <text name="fl_opt_season_hint" text="Orchards and field productions (pumpkin, strawberries, apples, etc.) only produce in their season, at a higher rate. Greenhouses run all year."/>
     </texts>
 </l10n>

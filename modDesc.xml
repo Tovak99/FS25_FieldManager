@@ -60,5 +60,6 @@ Sprachen: Deutsch, Englisch]]></de>
     <extraSourceFiles>
         <sourceFile filename="scripts/FieldListHUDFrame.lua"/>
         <sourceFile filename="scripts/FieldListHUD.lua"/>
+        <sourceFile filename="scripts/SeasonalProduction.lua"/>
     </extraSourceFiles>
 </modDesc>

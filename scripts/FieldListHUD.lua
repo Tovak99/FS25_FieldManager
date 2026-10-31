@@ -983,6 +983,7 @@ function FieldListHUD:saveData(dir)
         setXMLInt(h, "fieldListHUD.filter#tableMode", self.tblFilter or 1)
         setXMLInt(h, "fieldListHUD.filter#workMode", self.wkFilter or 4)
         setXMLBool(h, "fieldListHUD.settings#rotYield", FieldListHUD.rotYield == true)
+        setXMLBool(h, "fieldListHUD.settings#seasonal", FieldListHUD.seasonal == true)
         local ids = {}
         for id in pairs(self.store) do table.insert(ids, id) end
         table.sort(ids)
@@ -1045,6 +1046,8 @@ function FieldListHUD:loadData(dir)
         local h = loadXMLFile("fieldListHUD", path)
         local rotY = getXMLBool(h, "fieldListHUD.settings#rotYield")
         if rotY ~= nil then FieldListHUD.rotYield = rotY end
+        local seaY = getXMLBool(h, "fieldListHUD.settings#seasonal")
+        if seaY ~= nil then FieldListHUD.seasonal = seaY end
         local mode = getXMLInt(h, "fieldListHUD.filter#mode")
         if mode ~= nil and mode >= 1 and mode <= #FieldListHUD.FILTERS then
             self.filterMode = mode
@@ -2820,7 +2823,14 @@ function FieldListHUD:setRotYield(v)
     self:markDirtyCaches()
     -- Server: neuen Wert an alle Clients (Pseudo-Datensatz mit der Nummer 0)
     if self:isMP() and self:isAuthority() and self.sendRecords ~= nil then
-        self:sendRecords("all", { { id = 0, s = "rot=" .. (FieldListHUD.rotYield and "1" or "0") } })
+        self:sendRecords("all", { { id = 0, s = FieldListHUD.globalSettingsString() } })
+    end
+end
+
+function FieldListHUD:setSeasonal(v)
+    FieldListHUD.seasonal = v == true
+    if self:isMP() and self:isAuthority() and self.sendRecords ~= nil then
+        self:sendRecords("all", { { id = 0, s = FieldListHUD.globalSettingsString() } })
     end
 end
 
@@ -2959,6 +2969,12 @@ function FieldListHUD:drawOptionsPage(L)
     end
     top = top - rowH - 0.030
 
+    -- Bereich Saisonale Produktion
+    top = self:drawSection(x0, top, w0, T("opt_sec_season"))
+    rowBase(top, T("opt_season"), T("opt_season_hint") .. (canRot and "" or ("  " .. T("opt_host_only"))), not canRot)
+    toggle(top, FieldListHUD.seasonal == true, canRot, function(v) self:setSeasonal(v) end)
+    top = top - rowH - 0.030
+
     -- Bereich HUD
     top = self:drawSection(x0, top, w0, T("opt_sec_hud"))
     rowBase(top, T("opt_hud"), T("opt_hud_hint"), false)
@@ -2977,8 +2993,8 @@ function FieldListHUD:optionsMouse(posX, posY, isDown, button)
     return false
 end
 
--- Seitenreihenfolge im Menü: Agronomie, Arbeiten (intern 4), Feldtabelle (2), Produktionen (3)
-FieldListHUD.PAGE_ORDER = { 1, 4, 2, 3 }
+-- Seitenreihenfolge im Menü: Agronomie, Arbeiten (intern 4), Feldtabelle (2), Produktionen (3), Erntekalender (intern 6)
+FieldListHUD.PAGE_ORDER = { 1, 4, 2, 3, 6 }
 
 -- Pfeile oben rechts zum Wechseln zwischen Seite 1 und 2
 function FieldListHUD:drawPageArrows(L)
@@ -5877,6 +5893,225 @@ function FieldListHUD:drawFilterButtons(btns)
     end
 end
 
+-- Seite 5 im Menü (intern 6): Erntekalender der saisonalen Früchte
+function FieldListHUD:getSeasonRows()
+    local rows = {}
+    local SP = SeasonalProduction
+    if SP == nil then return rows end
+    for _, def in ipairs(SP.CALENDAR or {}) do
+        local season = def.file ~= nil and SP.FILE_SEASONS[def.file] or SP.SEASONS[def.fill]
+        if season ~= nil then
+            local title, icon = nil, nil
+            local ftype = nil
+            for _, n in ipairs(def.icons or { def.fill }) do
+                local ok, ft = pcall(function() return g_fillTypeManager:getFillTypeByName(n) end)
+                if ok and ft ~= nil then
+                    ftype = ftype or ft
+                    if icon == nil and ft.hudOverlayFilename ~= nil then icon = ft.hudOverlayFilename end
+                end
+            end
+            if def.l10n ~= nil then
+                title = T(def.l10n)
+            elseif ftype ~= nil then
+                title = ftype.title
+            else
+                title = def.fill
+            end
+            table.insert(rows, { title = title, icon = icon, season = season })
+        end
+    end
+    return rows
+end
+
+-- Jahreszeiten-Symbole (Pixelraster 13x13), gezeichnet aus kleinen Rechtecken
+FieldListHUD.SEASON_ICONS = {
+    spring = { ".............", "...#..#..#...", "...##.#.##...", "...#######...", "...#######...", "....#####....", ".....###.....", "......#......", "..#...#...#..", "..##..#..##..", "...##.#.##...", "....#####....", "......#......" },
+    summer = { "......#......", "......#......", "..#.......#..", "...#..#..#...", "....#####....", "....#...#....", "##.##...##.##", "....#...#....", "....#####....", "...#..#..#...", "..#.......#..", "......#......", "......#......" },
+    autumn = { ".............", ".............", "......####...", ".....#...##..", "....#...#.#..", "...#...#..#..", "..#...#...#..", "..#..#...#...", "..#.#...#....", "..##...#.....", "..#####......", ".#...........", "............." },
+    winter = { "#.....#.....#", ".#....#....#.", "..#...#...#..", "...#.###.#...", "....#.#.#....", "...#.###.#...", "#############", "...#.###.#...", "....#.#.#....", "...#.###.#...", "..#...#...#..", ".#....#....#.", "#.....#.....#" },
+}
+
+-- Jahreszeiten-Symbole direkt aus dem Hauptspiel (Slices des Anbaukalenders)
+FieldListHUD.SEASON_SLICES = {
+    spring = "gui.icon_calendar_spring",
+    summer = "gui.icon_calendar_summer",
+    autumn = "gui.icon_calendar_fall",
+    winter = "gui.icon_calendar_winter",
+}
+
+function FieldListHUD:getSeasonIcon(name)
+    self.seasonIcons = self.seasonIcons or {}
+    local ov = self.seasonIcons[name]
+    if ov == nil then
+        ov = false
+        if g_overlayManager ~= nil and g_overlayManager.createOverlay ~= nil then
+            local ok, res = pcall(function()
+                return g_overlayManager:createOverlay(FieldListHUD.SEASON_SLICES[name], 0, 0, 0.02, 0.02)
+            end)
+            if ok and res ~= nil then ov = res end
+        end
+        self.seasonIcons[name] = ov
+    end
+    return ov or nil
+end
+
+function FieldListHUD:drawPixelIcon(rows, x, y, h, color)
+    local n = #rows
+    local ch = h / n
+    local cw = ch / (g_screenAspectRatio or (16 / 9))
+    for ry = 1, n do
+        local line = rows[ry]
+        for rx = 1, #line do
+            if string.sub(line, rx, rx) == "#" then
+                self:drawRect(x + (rx - 1) * cw, y + (n - ry) * ch, cw + 0.00008, ch + 0.00008, color)
+            end
+        end
+    end
+    return n * cw
+end
+
+function FieldListHUD:drawSeasonPage(L)
+    local x0, w0 = L.ax, L.aw - 0.015
+    local top = L.ay + L.ah
+
+    setTextAlignment(RenderText.ALIGN_LEFT)
+    setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
+    setTextBold(true)
+    setTextColor(unpack(self.colorTitle))
+    renderText(x0, top, 0.036, T("title_season"))
+    setTextBold(false)
+    top = top - 0.060
+
+    local rows = self:getSeasonRows()
+    local bottom = L.ay + L.pad
+    local bandH = 0.036 -- Jahreszeiten-Symbole
+    local nameH = 0.028 -- Monatsnamen
+    local headH = bandH + nameH
+    local n = math.max(1, #rows)
+    local rowH = math.min(0.040, (top - bottom - headH) / n)
+    local total = headH + rowH * #rows
+    local y = top - total
+
+    local iconH = math.min(0.030, rowH * 0.86)
+    local iconW = iconH / (g_screenAspectRatio or (16 / 9))
+    local labelW = 0.012 + iconW + 0.010 + 0.120
+    local cellW = (w0 - labelW - 0.008) / 12
+    local gx = x0 + labelW
+    local sw = g_screenWidth or 1920
+
+    -- Monate laufen wie im Spielkalender von Maerz bis Februar
+    local function pos(m) return (m - 3) % 12 + 1 end
+
+    self:drawFrame(x0, y, w0, total, self.colorTile, self.colorBorder)
+
+    local curM = nil
+    local env = g_currentMission ~= nil and g_currentMission.environment or nil
+    if env ~= nil and env.currentPeriod ~= nil then
+        curM = (env.currentPeriod + 1) % 12 + 1
+    end
+
+    -- Jahreszeiten: Symbole mittig ueber je drei Monaten
+    local seasons = { "spring", "summer", "autumn", "winter" }
+    local symH = bandH * 0.62
+    for k = 1, 4 do
+        local sx = gx + (k - 1) * 3 * cellW
+        local rowsIcon = FieldListHUD.SEASON_ICONS[seasons[k]]
+        local symW = (symH / #rowsIcon) * #rowsIcon / (g_screenAspectRatio or (16 / 9))
+        local px, py = sx + (3 * cellW - symW) / 2, top - bandH + (bandH - symH) / 2
+        local ov = self:getSeasonIcon(seasons[k])
+        local drawn = false
+        if ov ~= nil then
+            drawn = pcall(function()
+                ov:setPosition(px, py)
+                ov:setDimension(symW, symH)
+                ov:render()
+            end)
+        end
+        if not drawn then
+            self:drawPixelIcon(rowsIcon, px, py, symH, self.colorTitle)
+        end
+    end
+
+    -- Monatsnamen
+    setTextAlignment(RenderText.ALIGN_CENTER)
+    setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+    setTextBold(true)
+    setTextColor(unpack(self.colorTitle))
+    for m = 1, 12 do
+        renderText(gx + (pos(m) - 0.5) * cellW, top - bandH - nameH / 2, 0.011, self.MONTHS[m])
+    end
+    setTextBold(false)
+    self:drawRect(x0, top - headH, w0, 0.0015, self.colorArea)
+
+    local harvestC = { 0.757, 0.278, 0.051, 1 }
+    for i, r in ipairs(rows) do
+        local ry = top - headH - i * rowH
+        if i % 2 == 0 then self:drawRect(x0 + 0.002, ry, w0 - 0.004, rowH, { 1, 1, 1, 0.04 }) end
+        -- Icon
+        local ix, iy = x0 + 0.008, ry + (rowH - iconH) / 2
+        self:drawRect(ix, iy, iconW, iconH, self.colorIcon)
+        local icon = r.icon ~= nil and self:getIcon(r.icon) or nil
+        if icon ~= nil then
+            icon:setPosition(ix, iy)
+            icon:setDimension(iconW, iconH)
+            icon:render()
+        end
+        -- Name
+        setTextAlignment(RenderText.ALIGN_LEFT)
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        setTextColor(unpack(self.colorTitle))
+        setTextBold(true)
+        local ts = 0.013
+        local nw = getTextWidth(ts, r.title)
+        local maxW = labelW - (0.012 + iconW + 0.010) - 0.004
+        if nw > maxW and nw > 0 then ts = ts * maxW / nw end
+        renderText(x0 + 0.012 + iconW + 0.010, ry + rowH / 2, ts, r.title)
+        setTextBold(false)
+        -- Erntebalken: durchgehend, mit abgerundeten Enden, mittig in der Zeile (wie im Spielkalender)
+        local p1, p2 = pos(r.season.from), pos(r.season.to)
+        local function bar(m1, m2)
+            local bx1 = gx + (m1 - 1) * cellW + 0.0012
+            local bx2 = gx + m2 * cellW - 0.0012
+            local bh = rowH * 0.28
+            local by = ry + (rowH - bh) / 2
+            local rx = bh / (2 * (g_screenAspectRatio or (16 / 9)))
+            self:drawRect(bx1 + rx * 0.7, by, (bx2 - bx1) - rx * 1.4, bh, harvestC)
+            self:drawRect(bx1 + rx * 0.25, by + bh * 0.14, (bx2 - bx1) - rx * 0.5, bh * 0.72, harvestC)
+            self:drawRect(bx1, by + bh * 0.30, (bx2 - bx1), bh * 0.40, harvestC)
+        end
+        if p2 >= p1 then
+            bar(p1, p2)
+        else
+            bar(p1, 12)
+            bar(1, p2)
+        end
+    end
+
+    -- senkrechte Monatstrenner; an den Jahreszeitengrenzen laenger und heller (bis in die Symbolzeile)
+    for m = 0, 12 do
+        local lineX = math.floor((gx + m * cellW) * sw + 0.5) / sw
+        if m % 3 == 0 then
+            self:drawRect(lineX, y + 0.002, 1 / sw, total - 0.002, { 0.55, 0.55, 0.55, 1 })
+        else
+            self:drawRect(lineX, y + 0.002, 1 / sw, total - bandH - 0.002, self.colorTrack)
+        end
+    end
+
+    -- gestrichelte Linie in der Mitte des aktuellen Monats
+    if curM ~= nil then
+        local lx0 = math.floor((gx + (pos(curM) - 0.5) * cellW) * sw + 0.5) / sw
+        local dy = y + 0.002
+        while dy < top - bandH - 0.002 do
+            self:drawRect(lx0, dy, 1.5 / sw, 0.004, { 1, 1, 1, 0.9 })
+            dy = dy + 0.007
+        end
+    end
+
+    setTextAlignment(RenderText.ALIGN_LEFT)
+    setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
+    setTextBold(false)
+end
+
 -- Wird vom Hook aufgerufen, solange das ESC-Menü gezeichnet wird
 function FieldListHUD:drawInMenu()
     local menu = g_inGameMenu
@@ -5913,9 +6148,11 @@ function FieldListHUD:drawInMenu()
         return
     end
 
-    if self.page == 2 or self.page == 3 or self.page == 4 or self.page == 5 then
+    if self.page == 2 or self.page == 3 or self.page == 4 or self.page == 5 or self.page == 6 then
         self.hitRects = {}
-        if self.page == 5 then
+        if self.page == 6 then
+            self:drawSeasonPage(L)
+        elseif self.page == 5 then
             self:drawOptionsPage(L)
         elseif self.page == 2 then
             self:drawTablePage(L)
@@ -6085,6 +6322,10 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
 
     if self.page == 5 then
         if self:optionsMouse(posX, posY, isDown, button) then return true end
+        return true
+    end
+
+    if self.page == 6 then
         return true
     end
 
@@ -6851,6 +7092,12 @@ end
 -- Vorbild: FS25_CropRotation überschreibt FSDensityMapUtil.cutFruitArea und multipliziert realArea.
 ------------------------------------------------------------------------
 FieldListHUD.rotYield = true -- immer an (kein Schalter)
+FieldListHUD.seasonal = false -- Saisonale Produktion (Option, nur der Host ändert sie)
+
+-- Einstellungen für das ganze Spiel als Text für den Abgleich mit den Clients
+function FieldListHUD.globalSettingsString()
+    return "rot=" .. (FieldListHUD.rotYield and "1" or "0") .. ";sea=" .. (FieldListHUD.seasonal and "1" or "0")
+end
 
 -- Ist ein anderer Fruchtfolge-Mod (z. B. Realistic Crop Rotation) geladen, rechnet dieser den Ertrag: kein doppelter Faktor
 function FieldListHUD.hasOtherRotationMod()
@@ -7071,7 +7318,8 @@ function FieldListHUD:onSyncEvent(mode, recs, connection)
         for _, r in ipairs(recs) do
             if r.id == 0 then
                 -- Einstellung für das ganze Spiel (Fruchtfolge-Ernte), kein Feld
-                FieldListHUD.rotYield = (r.s == "rot=1")
+                FieldListHUD.rotYield = string.find(r.s or "", "rot=1", 1, true) ~= nil
+                FieldListHUD.seasonal = string.find(r.s or "", "sea=1", 1, true) ~= nil
             else
                 local rec = self:getRecord(r.id)
                 local undo = rec.undo
@@ -7114,7 +7362,7 @@ function FieldListHUD:sendAllTo(connection)
         list[#list + 1] = { id = id, s = FieldListHUD.serializeRec(rec) }
     end
     table.sort(list, function(a, b) return a.id < b.id end)
-    list[#list + 1] = { id = 0, s = "rot=" .. (FieldListHUD.rotYield and "1" or "0") }
+    list[#list + 1] = { id = 0, s = FieldListHUD.globalSettingsString() }
     self:sendRecords(connection, list)
 end
 

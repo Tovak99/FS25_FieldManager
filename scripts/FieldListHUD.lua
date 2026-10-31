@@ -1421,7 +1421,7 @@ end
 
 -- Kleines Traktorsymbol aus Rechtecken (x, y = untere linke Ecke, w, h in Bildschirmeinheiten)
 function FieldListHUD:drawTractorBadge(x, y, w, h, working, count, restoreValign)
-    local col = working and { 0.55, 0.95, 0.25, 1 } or { 0.85, 0.85, 0.85, 1 }
+    local col = working and { 0.71, 0.87, 0.0, 1 } or { 0.85, 0.85, 0.85, 1 }
     local icon = self:getIcon(self.modDirectory .. "gui/tractor.dds")
     if icon ~= nil then
         icon:setPosition(x, y)

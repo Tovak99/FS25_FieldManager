@@ -2994,7 +2994,14 @@ function FieldListHUD:optionsMouse(posX, posY, isDown, button)
 end
 
 -- Seitenreihenfolge im Menü: Agronomie, Arbeiten (intern 4), Feldtabelle (2), Produktionen (3), Erntekalender (intern 6)
-FieldListHUD.PAGE_ORDER = { 1, 4, 2, 3, 6 }
+FieldListHUD.PAGE_ORDER = { 1, 4, 2, 3 }
+
+-- Erntekalender (intern 6) gibt es nur bei eingeschalteter Option "Saisonale Produktion"
+function FieldListHUD.getPageOrder()
+    local o = { 1, 4, 2, 3 }
+    if FieldListHUD.seasonal == true then o[#o + 1] = 6 end
+    return o
+end
 
 -- Pfeile oben rechts zum Wechseln zwischen Seite 1 und 2
 function FieldListHUD:drawPageArrows(L)
@@ -3004,12 +3011,12 @@ function FieldListHUD:drawPageArrows(L)
     local nextX = L.ax + L.aw - 0.015 - w
     local prevX = nextX - w - 0.006
     local y = top - h - 0.004
-    local order = FieldListHUD.PAGE_ORDER
+    local order = FieldListHUD.getPageOrder()
     local pos = 1
     for i, pg in ipairs(order) do if pg == self.page then pos = i end end
     -- Einstellungs-Button (Regler-Symbol); auf der Optionsseite ganz rechts, sonst links vom Seitenzähler
     local gw, gh = w, h
-    local gx = prevX - getTextWidth(0.013, string.format(T("page_x"), pos)) - 0.020 - gw
+    local gx = prevX - getTextWidth(0.013, string.format(T("page_x"), pos, #order)) - 0.020 - gw
     if self.page == 5 then gx = nextX end
     local gearOn = (self.page == 5)
     self:drawFrame(gx, y, gw, gh, gearOn and self.colorArea or self.colorTile, gearOn and self.colorBorder or self.colorArea)
@@ -3074,7 +3081,7 @@ function FieldListHUD:drawPageArrows(L)
     setTextAlignment(RenderText.ALIGN_RIGHT)
     setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
     setTextColor(unpack(self.colorSub))
-    renderText(prevX - 0.008, y + h / 2, 0.013, string.format(T("page_x"), pos))
+    renderText(prevX - 0.008, y + h / 2, 0.013, string.format(T("page_x"), pos, #order))
     setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
 end
 
@@ -6130,6 +6137,8 @@ function FieldListHUD:drawInMenu()
         self:refreshFields()
     end
 
+    if self.page == 6 and FieldListHUD.seasonal ~= true then self.page = 1 end
+    if self.prevPage == 6 and FieldListHUD.seasonal ~= true then self.prevPage = 1 end
     local selected = self:getSelectedEntry()
     local L = self:computeLayout()
     self.layout = L

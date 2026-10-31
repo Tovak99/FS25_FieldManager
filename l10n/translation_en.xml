@@ -225,7 +225,7 @@
         <text name="fl_lime_full" text="Fully limed"/>
         <text name="fl_ground_state" text="Ground state"/>
         <text name="fl_nothing_special" text="Total"/>
-        <text name="fl_page_x" text="Page %d / 5"/>
+        <text name="fl_page_x" text="Page %d / %d"/>
         <text name="fl_title_table" text="CROP ROTATION PLANNING"/>
         <text name="fl_col_field" text="FIELD"/>
         <text name="fl_col_area" text="AREA"/>

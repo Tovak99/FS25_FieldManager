@@ -225,7 +225,7 @@
         <text name="fl_lime_full" text="Vollständig gekalkt"/>
         <text name="fl_ground_state" text="Bodenzustand"/>
         <text name="fl_nothing_special" text="Summe"/>
-        <text name="fl_page_x" text="Seite %d / 5"/>
+        <text name="fl_page_x" text="Seite %d / %d"/>
         <text name="fl_title_table" text="FRUCHTFOLGE-PLANUNG"/>
         <text name="fl_col_field" text="FELD"/>
         <text name="fl_col_area" text="FLÄCHE"/>

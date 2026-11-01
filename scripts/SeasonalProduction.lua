@@ -310,37 +310,42 @@ end
 SeasonalProduction.STATUS_TEXTS = { ["Läuft"] = true, ["Running"] = true }
 
 function SeasonalProduction.patchMenu()
+    -- nur, solange das Menue wirklich sichtbar ist (currentPage bleibt auch nach dem Schliessen gesetzt)
+    if g_gui == nil or g_gui.getIsGuiVisible == nil or not g_gui:getIsGuiVisible() then return end
     local menu = g_inGameMenu
     local pg = menu ~= nil and menu.currentPage or nil
     if pg == nil then return end
     local sel = pg.selectedProductionPoint or pg.productionPoint
     if sel == nil then return end
-    if not SeasonalProduction.dumped then
-        SeasonalProduction.dumped = true
-        local n = 0
-        local function dump(el, depth)
-            if el == nil or depth > 10 or n > 150 then return end
-            local t = el.text
-            if type(t) == "string" and t ~= "" then
-                n = n + 1
-                print(string.format("SeasonalProduction: Menuetext [%d] id=%s profile=%s text=%s", depth, tostring(el.id), tostring(el.profile), t))
-            end
-            for _, ch in ipairs(el.elements or {}) do dump(ch, depth + 1) end
-        end
-        pcall(dump, pg, 0)
-    end
     local d = SeasonalProduction.info[sel]
     if d == nil or d.class ~= "seasonal" or not SeasonalProduction.isEnabled() then return end
     if d.appliedFactor == nil or d.appliedFactor > 1e-5 then return end
-    local txt = g_i18n:getText("fl_season_off", SeasonalProduction.modName)
-    local function walk(el, depth)
-        if el == nil or depth > 10 then return end
-        if type(el.text) == "string" and SeasonalProduction.STATUS_TEXTS[el.text] and el.setText ~= nil then
-            el:setText(txt)
-        end
-        for _, ch in ipairs(el.elements or {}) do walk(ch, depth + 1) end
+
+    local txt = SeasonalProduction.offText
+    if txt == nil then
+        txt = g_i18n:getText("fl_season_off", SeasonalProduction.modName)
+        SeasonalProduction.offText = txt
     end
-    walk(pg, 0)
+
+    -- Statusfelder zwischenspeichern; der Baum wird nur bei Wechsel der Auswahl und gelegentlich neu durchsucht
+    local c = SeasonalProduction.statusCache
+    if c == nil or c.sel ~= sel or c.pg ~= pg or c.age > 60 then
+        c = { sel = sel, pg = pg, age = 0, els = {} }
+        local function walk(el, depth)
+            if el == nil or depth > 10 then return end
+            if type(el.text) == "string" and el.setText ~= nil
+                and (SeasonalProduction.STATUS_TEXTS[el.text] or el.text == txt) then
+                c.els[#c.els + 1] = el
+            end
+            for _, ch in ipairs(el.elements or {}) do walk(ch, depth + 1) end
+        end
+        walk(pg, 0)
+        SeasonalProduction.statusCache = c
+    end
+    c.age = c.age + 1
+    for _, el in ipairs(c.els) do
+        if SeasonalProduction.STATUS_TEXTS[el.text] then el:setText(txt) end
+    end
 end
 
 function SeasonalProduction:update(dt)

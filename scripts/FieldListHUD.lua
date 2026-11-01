@@ -231,6 +231,13 @@ function FieldListHUD:deleteMap()
         icon:delete()
     end
     self.icons = {}
+
+    -- Jahreszeiten-Symbole (Erntekalender) und Zwischenspeicher freigeben
+    for _, ov in pairs(self.seasonIcons or {}) do
+        if ov ~= false and ov.delete ~= nil then pcall(ov.delete, ov) end
+    end
+    self.seasonIcons = nil
+    self.seasonRowsCache = nil
 end
 
 function FieldListHUD:update(dt)
@@ -5902,6 +5909,7 @@ end
 
 -- Seite 5 im Menü (intern 6): Erntekalender der saisonalen Früchte
 function FieldListHUD:getSeasonRows()
+    if self.seasonRowsCache ~= nil then return self.seasonRowsCache end
     local rows = {}
     local SP = SeasonalProduction
     if SP == nil then return rows end
@@ -5927,6 +5935,7 @@ function FieldListHUD:getSeasonRows()
             table.insert(rows, { title = title, icon = icon, season = season })
         end
     end
+    if #rows > 0 then self.seasonRowsCache = rows end
     return rows
 end
 
@@ -6051,6 +6060,17 @@ function FieldListHUD:drawSeasonPage(L)
     self:drawRect(x0, top - headH, w0, 0.0015, self.colorArea)
 
     local harvestC = { 0.757, 0.278, 0.051, 1 }
+    local aspect = g_screenAspectRatio or (16 / 9)
+    local function drawBar(m1, m2, ry)
+        local bx1 = gx + (m1 - 1) * cellW + 0.0012
+        local bx2 = gx + m2 * cellW - 0.0012
+        local bh = rowH * 0.28
+        local by = ry + (rowH - bh) / 2
+        local rx = bh / (2 * aspect)
+        self:drawRect(bx1 + rx * 0.7, by, (bx2 - bx1) - rx * 1.4, bh, harvestC)
+        self:drawRect(bx1 + rx * 0.25, by + bh * 0.14, (bx2 - bx1) - rx * 0.5, bh * 0.72, harvestC)
+        self:drawRect(bx1, by + bh * 0.30, (bx2 - bx1), bh * 0.40, harvestC)
+    end
     for i, r in ipairs(rows) do
         local ry = top - headH - i * rowH
         if i % 2 == 0 then self:drawRect(x0 + 0.002, ry, w0 - 0.004, rowH, { 1, 1, 1, 0.04 }) end
@@ -6076,21 +6096,11 @@ function FieldListHUD:drawSeasonPage(L)
         setTextBold(false)
         -- Erntebalken: durchgehend, mit abgerundeten Enden, mittig in der Zeile (wie im Spielkalender)
         local p1, p2 = pos(r.season.from), pos(r.season.to)
-        local function bar(m1, m2)
-            local bx1 = gx + (m1 - 1) * cellW + 0.0012
-            local bx2 = gx + m2 * cellW - 0.0012
-            local bh = rowH * 0.28
-            local by = ry + (rowH - bh) / 2
-            local rx = bh / (2 * (g_screenAspectRatio or (16 / 9)))
-            self:drawRect(bx1 + rx * 0.7, by, (bx2 - bx1) - rx * 1.4, bh, harvestC)
-            self:drawRect(bx1 + rx * 0.25, by + bh * 0.14, (bx2 - bx1) - rx * 0.5, bh * 0.72, harvestC)
-            self:drawRect(bx1, by + bh * 0.30, (bx2 - bx1), bh * 0.40, harvestC)
-        end
         if p2 >= p1 then
-            bar(p1, p2)
+            drawBar(p1, p2, ry)
         else
-            bar(p1, 12)
-            bar(1, p2)
+            drawBar(p1, 12, ry)
+            drawBar(1, p2, ry)
         end
     end
 

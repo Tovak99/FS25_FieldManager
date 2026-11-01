@@ -6,17 +6,6 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 
 *English summary below.*
 
-
-## Screenshots
-
-<img width="1439" height="860" alt="image" src="https://github.com/user-attachments/assets/5b8b60e4-4409-4434-88f0-1c0f5d1159d9" />
-<img width="1480" height="892" alt="image" src="https://github.com/user-attachments/assets/0a480ee8-906c-4fa9-8aac-2b1a9ce70cf1" />
-<img width="1464" height="884" alt="image" src="https://github.com/user-attachments/assets/44845002-cd49-4094-a999-a5677366e584" />
-<img width="1481" height="909" alt="image" src="https://github.com/user-attachments/assets/55ee4f4a-7514-4120-9061-c364def5dd55" />
-<img width="320" height="159" alt="image" src="https://github.com/user-attachments/assets/adbbf512-a050-4333-88e3-81dd691516a3" />
-
----
-
 ## Funktionen
 
 ### Seite 1: Felder
@@ -35,16 +24,22 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Fruchtfolgefaktor wirkt auf den Planungsertrag und (immer an) auch auf den echten Ernteertrag
 - „Automatisch planen“ plant die Folgefrucht aller Felder einmalig (nach Bewertung und größter Fehlmenge); „Fest übernehmen“ übernimmt alle Vorschläge
 
+<img width="1439" height="860" alt="image" src="https://github.com/user-attachments/assets/5b8b60e4-4409-4434-88f0-1c0f5d1159d9" />
+
 ### Seite 2: Anstehende Arbeiten in diesem Monat
 - Tabelle: eine Zeile je Feld, Spalten Ernte, Pflügen, Steine, Kalk, Dünger, Unkraut, Zwischenfrucht, Aussaat, Walzen; sortierbar
 - Eigener Filter (Start mit „Arbeiten“)
 - **Arbeiten verschieben:** Klick auf eine Arbeit blendet sie bis zum nächsten Monat aus (grau), erneuter Klick holt sie zurück; Ernte lässt sich nicht verschieben
 - Ernte-Aufgabe entfällt, solange die Zwischenfrucht auf dem Feld wächst
 
+<img width="1480" height="892" alt="image" src="https://github.com/user-attachments/assets/0a480ee8-906c-4fa9-8aac-2b1a9ce70cf1" />
+
 ### Seite 3: Fruchtfolge-Planung
 - Feldtabelle mit Ertrag, Spalte PROD. (grün/gelb/grau: Feld wird für den Produktionsbedarf gebraucht, teilweise, nicht nötig), Folgefrucht, aktueller Frucht und Vorfrüchten
 - Fußzeile mit Details je Zeile: Deckung des Bedarfs (Ernte dieses Jahr, nächstes Jahr, in 2 Jahren); bei Früchten ohne Produktionsbedarf die Ertragsprognose mit Summe und Anteil des Feldes
 - Eigener Filter (Alle, Frucht, Gras)
+
+<img width="1464" height="884" alt="image" src="https://github.com/user-attachments/assets/44845002-cd49-4094-a999-a5677366e584" />
 
 ### Seite 4: Ertragsplanung
 - Je Frucht, Futter und Stroh: Ertrag, Bedarf der Produktionen, Differenz, Lagerbestand, Eingang, Fehlmenge und benötigte Fläche
@@ -52,6 +47,8 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Planung rechnet mit festem Bonus für geplante Felder, Mehrschnitt-Früchte mit Schnitten pro Jahr
 - Detailfenster je Frucht mit Produktionen, Eingängen und allen beteiligten Feldern (Ernte, Fläche, Ertrag, Menge)
 - Weizen/Sommerweizen und Gerste/Sommergerste werden zusammen geführt
+
+<img width="1481" height="909" alt="image" src="https://github.com/user-attachments/assets/55ee4f4a-7514-4120-9061-c364def5dd55" />
 
 ### Seite 5: Erntekalender (saisonale Produktion)
 - Eine Zeile je Frucht mit Symbol, Name und Erntezeitraum als Balken, Monate von März bis Februar mit den Jahreszeiten-Symbolen des Spiels
@@ -70,6 +67,8 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Durchsichtiges Fenster mit allen Feldern und der wichtigsten offenen Arbeit (weitere Arbeiten mit „(+)“), aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen
 - Maus ein/aus mit **Alt+F** (Taste änderbar); ist die Maus durch einen anderen Mod aktiv, nutzt der Mod sie mit
 - Einstellungs-Symbol im Titel (nur bei Maus über dem Fenster) schaltet den Bearbeitungsmodus: Titel ziehen = verschieben, Ecke = Größe, Mausrad = scrollen; Position und Größe werden gespeichert
+
+  <img width="320" height="159" alt="image" src="https://github.com/user-attachments/assets/adbbf512-a050-4333-88e3-81dd691516a3" />
 
 ### Optionen (Einstellungs-Symbol im Menü)
 - Fruchtfolge-Ernte ein/aus (Host)

@@ -57,11 +57,14 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Eine Zeile je Frucht mit Symbol, Name und Erntezeitraum als Balken, Monate von März bis Februar mit den Jahreszeiten-Symbolen des Spiels
 - Gestrichelte senkrechte Linie in der Mitte des aktuellen Monats
 
-### Saisonale Produktion (Option, Host)
+### Saisonale Produktion (Option, Host) (Ab Version 1.1.1.0)
 - Plantagen und Feld-Produktionen (Apfel, Birne, Kirsche, Pflaume, Pfirsich, Mirabelle, Trauben, Beeren, Hopfen, Kürbis, Oliven, Rollrasen, Tannenbäume) produzieren nur in ihrer Saison; Gewächshäuser laufen ganzjährig
 - Die Leistung steigt vom Saisonbeginn bis zur Mitte des ersten Monats von 0 auf 100 % und fällt ab der Mitte des letzten Monats wieder auf 0 %; die Spitze (12 / (Saisonmonate − 0,5)) hält die Jahresmenge etwa gleich
 - Außerhalb der Saison bleibt die Produktion eingeschaltet, es laufen nur keine Zyklen; im Produktionsmenü steht „Außerhalb der Erntezeit“
 - Neue Gebäude werden auch während des Spiels erfasst; der Server entscheidet im Mehrspielermodus
+
+<img width="1487" height="844" alt="image" src="https://github.com/user-attachments/assets/8b73112c-8504-411e-b5ac-7121003e1e04" />
+
 
 ### HUD-Fenster im Spiel
 - Durchsichtiges Fenster mit allen Feldern und der wichtigsten offenen Arbeit (weitere Arbeiten mit „(+)“), aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen

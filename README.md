@@ -76,6 +76,9 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - HUD-Fenster ein/aus
 - Saisonale Produktion ein/aus (Host)
 
+<img width="1507" height="894" alt="image" src="https://github.com/user-attachments/assets/c177b509-2964-4b1d-8551-dfc96f93a47e" />
+
+
 ### Mehrspieler und Technik
 - Server führt die Daten (`fieldManager.xml` im Spielstand), Clients planen über Ereignisse
 - Optionen und HUD-Position je Spieler unter `modSettings/FS25_FieldManager`

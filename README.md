@@ -64,7 +64,7 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 
 
 ### HUD-Fenster im Spiel
-- Durchsichtiges Fenster mit allen Feldern und der wichtigsten offenen Arbeit (weitere Arbeiten mit „(+)“), aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen
+- Durchsichtiges Fenster mit allen Feldern und der wichtigsten offenen Arbeit (weitere Arbeiten mit „(+)“), aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen auf diesem Feld. Grün wenn sie sich bewegen, Grau wenn sie stehen
 - Maus ein/aus mit **Alt+F** (Taste änderbar); ist die Maus durch einen anderen Mod aktiv, nutzt der Mod sie mit
 - Einstellungs-Symbol im Titel (nur bei Maus über dem Fenster) schaltet den Bearbeitungsmodus: Titel ziehen = verschieben, Ecke = Größe, Mausrad = scrollen; Position und Größe werden gespeichert
 

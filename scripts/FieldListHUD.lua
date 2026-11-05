@@ -6805,7 +6805,7 @@ function FieldListHUD:calcRotationPct(rec, cand, gC, nName, gN, hits, selfCrop)
     end
     if hits ~= nil and hits > 0 then addP("r_pause", -10 * hits) end
     if rec.ccPending or rec.ccPlanned then
-        addP("r_cc", gC == "OE" and -10 or 10)
+        addP("r_cc", (gC == "OE" and FieldListHUD.isBrassica(cand)) and -10 or 10)
     end
     if seq[1] ~= nil and seq[2] ~= nil and FieldListHUD.sameFruit(string.upper(seq[1]), string.upper(cand))
         and FieldListHUD.sameFruit(string.upper(seq[2]), string.upper(cand)) then
@@ -6818,6 +6818,13 @@ function FieldListHUD:calcRotationPct(rec, cand, gC, nName, gN, hits, selfCrop)
     local f = math.max(50, math.min(140, 100 + sum))
     if selfCrop then f = math.min(f, 75) end
     return parts, f
+end
+
+-- Kreuzblütler unter den Ölfrüchten (Raps, Senf): nur für sie gilt die Zwischenfrucht-Regel mit Ölrettich;
+-- das späte Räumen (W6) betrifft nur den im Spätsommer gesäten Raps. Leinsamen, Sonnenblumen, Mohn sind ausgenommen.
+FieldListHUD.BRASSICA = { CANOLA = true, MUSTARD = true }
+function FieldListHUD.isBrassica(name)
+    return name ~= nil and FieldListHUD.BRASSICA[string.upper(name)] == true
 end
 
 function FieldListHUD:getRotationFactor(rec, cand)
@@ -6903,7 +6910,7 @@ function FieldListHUD:rateCandidate(rec, cand)
     end
     -- W5: Zwischenfrucht (Kreuzblütler wie Ölrettich) zwischen N und N+1
     if rec.ccPending or rec.ccPlanned then
-        if gC == "OE" then add("r_cc", -1) else add("r_cc", 1) end
+        if gC == "OE" and FieldListHUD.isBrassica(cand) then add("r_cc", -1) else add("r_cc", 1) end
     end
     -- H5: geplante Zwischenfrucht muss nach der Ernte von N ins Saatfenster passen und vor der Saat von N+1 stehen können
     if rec.ccPlanned and not rec.ccPending and nName ~= nil then
@@ -6935,7 +6942,7 @@ function FieldListHUD:rateCandidate(rec, cand)
         end
     end
     -- W6: spätes Räumen vor Wintergetreide oder Raps
-    if gN ~= nil and FieldListHUD.LATE[gN] and (gC == "WG" or gC == "OE") then
+    if gN ~= nil and FieldListHUD.LATE[gN] and (gC == "WG" or (gC == "OE" and string.upper(cand) == "CANOLA")) then
         add("r_late", -1)
     end
     res.points = math.max(-2, math.min(2, res.points))
@@ -6993,7 +7000,16 @@ function FieldListHUD:planAllNext()
         for pass = 1, 2 do
         for _, e in ipairs(self.fields or {}) do
             local rec = self:getRecord(e.id)
-            local gCur = rec ~= nil and FieldListHUD.getGroup(rec.cur) or nil
+            -- Sperre für Dauerkulturen gilt nur, solange sie wirklich noch auf dem Feld stehen (oder von Hand als aktuell gesetzt sind).
+            -- Ist das Feld nach der Ernte bearbeitet und leer, darf es wieder verplant werden (rec.cur bleibt nur als Vorfrucht stehen).
+            local gCur = nil
+            if rec ~= nil then
+                if rec.manual and rec.cur ~= nil then
+                    gCur = FieldListHUD.getGroup(rec.cur)
+                elseif e.fruitName ~= nil then
+                    gCur = FieldListHUD.getGroup(e.fruitName)
+                end
+            end
             -- Steht noch eine Frucht, die erst nach dem Jahreswechsel geerntet wird (z. B. Raps), liefert N+1 erst
             -- im übernächsten Jahr und deckt die Fehlmenge des nächsten Jahres nicht
             local curIndex, curNm = nil, nil
@@ -7014,6 +7030,7 @@ function FieldListHUD:planAllNext()
                 local noHist = rec.cur == nil and #(rec.hist or {}) == 0
                 local minPts = (noHist or pass == 2) and 0 or 1
                 local best, bestPts, bestShort, bestOff = nil, -9, 0, 1
+                local why, noDemand = {}, 0
                 for _, o in ipairs(opts) do
                     local nm = o.name
                     -- Erntejahr dieser Frucht auf diesem Feld (Simulation): 1 = nächstes Jahr, 2 = in 2 Jahren
@@ -7049,8 +7066,27 @@ function FieldListHUD:planAllNext()
                                 or (r.points == bestPts and (off < bestOff or (off == bestOff and eff > bestShort))) then
                                 best, bestPts, bestShort, bestOff = nm, r.points, eff, off
                             end
+                        elseif pass == 2 then
+                            local rs = {}
+                            for _, q in ipairs(r.reasons or {}) do table.insert(rs, tostring(q.key) .. "=" .. tostring(q.v)) end
+                            table.insert(why, string.format("%s: %s (Punkte %d, min %d; %s)", nm, r.blocked and "gesperrt" or "Bewertung zu niedrig", r.points or 0, minPts, table.concat(rs, ",")))
+                        end
+                    elseif pass == 2 and nm ~= nil then
+                        -- Nur Früchte mit offener Fehlmenge auflisten, der Rest wird gezählt
+                        if eff <= 0 then
+                            noDemand = noDemand + 1
+                        elseif not sowOk then
+                            table.insert(why, string.format("%s: Ernte-Jahr %s (Fehlmenge %d l)", nm, tostring(off), math.floor(eff)))
+                        elseif not allowed[FieldListHUD.getGroup(nm) or ""] then
+                            table.insert(why, string.format("%s: Gruppe %s nicht erlaubt", nm, tostring(FieldListHUD.getGroup(nm))))
+                        else
+                            table.insert(why, string.format("%s: Rest %d l zu klein fürs Feld (Ernte-Jahr %s)", nm, math.floor(eff), tostring(off)))
                         end
                     end
+                end
+                if best == nil and pass == 2 then
+                    print(string.format("FieldManager-Plan: Feld %s (%.1f ha, letzte Frucht %s, steht %s): keine Folgefrucht. %s | ohne Bedarf: %d",
+                        tostring(e.id), e.area or 0, tostring(rec.cur), tostring(e.fruitName), table.concat(why, "; "), noDemand))
                 end
                 if best ~= nil then
                     rec.next = best
@@ -7069,9 +7105,25 @@ function FieldListHUD:planAllNext()
                     end
                     planned = planned + 1
                 end
+            elseif pass == 2 and rec ~= nil and rec.next == nil and not rec.unused then
+                print(string.format("FieldManager-Plan: Feld %s: gesperrt, Dauerkultur steht (Gruppe %s, %s)", tostring(e.id), tostring(gCur), tostring(e.fruitName)))
             end
         end
         end
+        -- Verbleibende Fehlmengen nach der Planung (Liter nach Lager), zum Prüfen des Algorithmus
+        local rest = {}
+        for hz = 1, 2 do
+            for nm, v in pairs(shortH[hz]) do
+                if v > 0.5 then table.insert(rest, string.format("%s J%d=%d", nm, hz, math.floor(v))) end
+            end
+        end
+        for hz = 1, 2 do
+            for nm, v in pairs(shortWH[hz]) do
+                if v > 0.5 then table.insert(rest, string.format("%s(Schwad) J%d=%d", nm, hz, math.floor(v))) end
+            end
+        end
+        table.sort(rest)
+        print("FieldManager-Plan: geplant=" .. tostring(planned) .. ", verbleibende Fehlmenge: " .. table.concat(rest, ", "))
     end)
     if not ok then
         print("FieldListHUD: Auto-Folgefrucht fehlgeschlagen: " .. tostring(err))
@@ -7094,19 +7146,27 @@ function FieldListHUD:planOneNext(id)
         -- bisherige Wahl dieses Feldes aus der Bedarfsrechnung nehmen
         local prevNext = rec.next
         rec.next, rec.autoNext = nil, false
-        local gCur = FieldListHUD.getGroup(rec.cur)
+        -- Sperre nur, solange eine Dauerkultur wirklich noch auf dem Feld steht (nicht bei bearbeitetem, leerem Feld)
+        local gCur = nil
+        if rec.manual and rec.cur ~= nil then
+            gCur = FieldListHUD.getGroup(rec.cur)
+        elseif e.fruitName ~= nil then
+            gCur = FieldListHUD.getGroup(e.fruitName)
+        end
         if gCur == "GR" or gCur == "FL" or gCur == "DS" then return end
         local list = self:buildPage3List()
         local shortH, shortWH = { {}, {} }, { {}, {} }
         for _, it in ipairs(list) do
             if it.name ~= nil then
                 if it.isWindrow then
-                    shortWH[1][it.name] = (shortWH[1][it.name] or 0) + (it.demand or 0) - (it.nextYear or 0)
-                    shortWH[2][it.name] = (shortWH[2][it.name] or 0) + (it.demand or 0) - (it.in2 or 0)
+                    local shs = self:getStockShortages(it)
+                    shortWH[1][it.name] = (shortWH[1][it.name] or 0) + shs[2]
+                    shortWH[2][it.name] = (shortWH[2][it.name] or 0) + shs[3]
                 elseif not it.isAnimal and not it.isStraw and not it.isHeader and not it.multiCut
                     and not FieldListHUD.MULTI_CUT[it.name] then
-                    shortH[1][it.name] = (it.demand or 0) - (it.nextYear or 0)
-                    shortH[2][it.name] = (it.demand or 0) - (it.in2 or 0)
+                    local shs = self:getStockShortages(it)
+                    shortH[1][it.name] = shs[2]
+                    shortH[2][it.name] = shs[3]
                 end
             end
         end

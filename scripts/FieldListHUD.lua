@@ -418,6 +418,11 @@ FieldListHUD.GROUND_TEXT = {
 
 -- Feldstatus als Text: Wachstum aus Wachstumsstufe, sonst Bodenbearbeitung aus groundType
 function FieldListHUD:getStatusText(entry)
+    -- Schnittfrüchte: 5/4 = abgeerntet (Walzen steht an), 6/4 = gewalzt
+    if entry.fruitTitle ~= nil and FieldListHUD.CUT_CROPS[entry.fruitName or ""] and entry.growthState ~= nil
+        and entry.maxGrowth ~= nil and entry.growthState > entry.maxGrowth then
+        return entry.growthState > entry.maxGrowth + 1 and T("ground_rolled") or T("ground_harvested")
+    end
     if entry.fruitTitle ~= nil and self:needsRolling(entry) then
         return T("status_mustroll")
     end
@@ -443,6 +448,11 @@ end
 
 -- Frucht ist gesät, aber der Walzen-Wert steht noch auf "nicht gewalzt" (Annahme: rollerLevel > 0)
 function FieldListHUD:needsRolling(entry)
+    -- Schnittfrüchte: Walzen nur direkt nach dem Schnitt (5/4); bei 6/4 ist gewalzt
+    if entry.fruitTitle ~= nil and FieldListHUD.CUT_CROPS[entry.fruitName or ""] and entry.growthState ~= nil
+        and entry.maxGrowth ~= nil and entry.growthState > entry.maxGrowth then
+        return entry.growthState == entry.maxGrowth + 1
+    end
     return entry.fruitTitle ~= nil and entry.roller ~= nil and entry.roller > 0
 end
 
@@ -657,7 +667,8 @@ function FieldListHUD:buildEntry(field, light)
         if FieldListHUD.CUT_CROPS[entry.fruitName] then
             entry.maxGrowth = math.max(entry.maxGrowth or 0, 4)
             if entry.growthState ~= nil then
-                entry.harvestReady = entry.growthState >= entry.maxGrowth
+                -- nur 4/4 ist erntereif; 5/4 = abgeerntet (Walzen nötig), 6/4 = gewalzt
+                entry.harvestReady = entry.growthState == entry.maxGrowth
             end
         end
         entry.iconFilename = fillType ~= nil and fillType.hudOverlayFilename or nil
@@ -781,6 +792,22 @@ end
 function FieldListHUD:getMainEntry(entry)
     -- Zwischenfrucht steht auf dem Feld: sie wird als aktuelle Frucht gezeigt (Z-Marker und Hinweis unter der Folgefrucht bleiben)
     return self:getCurrentOverride(entry) or entry
+end
+
+-- Vorfruchtliste für die Anzeige: Ist das Feld leer (geerntet und bearbeitet, z. B. Gegrubbert/Stoppelsturz),
+-- steht dort "Aktuell" der Bodenzustand und die zuletzt geerntete Frucht (rec.cur) ist Vorfrucht 1.
+function FieldListHUD:getDisplayHist(entry)
+    local rec = entry ~= nil and entry.id ~= nil and self.store ~= nil and self.store[entry.id] or nil
+    if rec == nil then
+        return {}
+    end
+    local hist = rec.hist or {}
+    if rec.cur ~= nil and not rec.manual and entry.fruitName == nil and not FieldListHUD.isCatchCrop(rec.cur) then
+        local out = { rec.cur }
+        for i, v in ipairs(hist) do out[i + 1] = v end
+        return out
+    end
+    return hist
 end
 
 -- Fruchtfolgefaktor zum Saatzeitpunkt festhalten (gilt später bei der Ernte); nur wenn die Saat gerade erst erfolgt ist
@@ -2337,7 +2364,6 @@ function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
     local env = g_currentMission ~= nil and g_currentMission.environment or nil
     if env ~= nil and env.currentPeriod ~= nil then
         curM = (env.currentPeriod + 1) % 12 + 1
-        self:drawRect(gx + (curM - 1) * cellW, y + 0.002, cellW, total - 0.004, { 0.35, 0.65, 0.95, 0.28 })
         -- gestrichelte Linie am heutigen Tag (wie im Spielkalender)
         local dpp = env.daysPerPeriod or 1
         local day = env.currentDay or 1
@@ -2355,7 +2381,7 @@ function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
     setTextAlignment(RenderText.ALIGN_CENTER)
     setTextBold(true)
     for m = 1, 12 do
-        setTextColor(unpack(m == curM and { 0.55, 0.80, 1, 1 } or self.colorSub))
+        setTextColor(unpack(self.colorSub))
         renderText(gx + (m - 0.5) * cellW, y + total - 0.003, 0.010, self.MONTHS[m])
     end
     setTextAlignment(RenderText.ALIGN_LEFT)
@@ -2547,7 +2573,7 @@ function FieldListHUD:drawDetail(d, entry)
         T("box_prev4"), T("box_prev5"), T("box_prev6") }
     local boxes  = #labels
     local boxW   = (d.w - (boxes - 1) * gapBox) / boxes
-    local hl = self:getRecord(entry.id).hist
+    local hl = self:getDisplayHist(entry)
     do
         local rc0 = self:getRecord(entry.id)
         if rc0.next ~= nil then
@@ -2784,7 +2810,7 @@ end
 -- Pro Spieler (Benutzerordner): Boni für geplante Felder, HUD-Fenster
 -- Für das ganze Spiel (Savegame, nur Host): Fruchtfolge-Ernte
 ------------------------------------------------------------------------
-FieldListHUD.settings = { hud = false, hx = 0.012, hy = 0.50, hw = 0.19, hh = 0.22 }
+FieldListHUD.settings = { hud = false, hx = 0.012, hy = 0.50, hw = 0.19, hh = 0.22, sortPrio = false }
 
 function FieldListHUD:getPlayerSettingsPath()
     local base = getUserProfileAppPath() .. "modSettings/"
@@ -2800,6 +2826,8 @@ function FieldListHUD:loadPlayerSettings()
             if pb ~= nil then FieldListHUD.PLAN_BONUS = math.max(0, math.min(200, pb)) end
             local hud = getXMLBool(h, "fieldManagerSettings.hud#value")
             if hud ~= nil then self.settings.hud = hud end
+            local sp = getXMLBool(h, "fieldManagerSettings.hudSortPrio#value")
+            if sp ~= nil then self.settings.sortPrio = sp end
             for _, k in ipairs({ "hx", "hy", "hw", "hh" }) do
                 local v = getXMLFloat(h, "fieldManagerSettings.hudWindow#" .. k)
                 if v ~= nil then self.settings[k] = v end
@@ -2817,6 +2845,7 @@ function FieldListHUD:savePlayerSettings()
         local h = createXMLFile("fieldManagerSettings", file, "fieldManagerSettings")
         setXMLInt(h, "fieldManagerSettings.planBonus#value", FieldListHUD.PLAN_BONUS)
         setXMLBool(h, "fieldManagerSettings.hud#value", self.settings.hud == true)
+        setXMLBool(h, "fieldManagerSettings.hudSortPrio#value", self.settings.sortPrio == true)
         for _, k in ipairs({ "hx", "hy", "hw", "hh" }) do
             setXMLFloat(h, "fieldManagerSettings.hudWindow#" .. k, self.settings[k])
         end
@@ -2846,6 +2875,13 @@ function FieldListHUD:setPlanBonus(v)
     FieldListHUD.PLAN_BONUS = v
     self.p3Dirty, self.wkDirty = true, true
     self:markDirtyCaches()
+    self:savePlayerSettings()
+end
+
+function FieldListHUD:setHudSort(v)
+    self.settings.sortPrio = v == true
+    self.wkDirty = true
+    self.hudRows = nil
     self:savePlayerSettings()
 end
 
@@ -2986,6 +3022,9 @@ function FieldListHUD:drawOptionsPage(L)
     top = self:drawSection(x0, top, w0, T("opt_sec_hud"))
     rowBase(top, T("opt_hud"), T("opt_hud_hint"), false)
     toggle(top, self.settings.hud == true, true, function(v) self:setHud(v) end)
+    top = top - rowH - gap
+    rowBase(top, T("opt_hud_sort"), T("opt_hud_sort_hint"), false)
+    toggle(top, self.settings.sortPrio == true, true, function(v) self:setHudSort(v) end)
 end
 
 -- Klick auf Seite 5
@@ -3313,8 +3352,9 @@ function FieldListHUD:drawTablePage(L)
         else
             self:drawFruitCell(self:getMainEntry(e), cols[6].x, ry, cols[6].w, rowH, textSize)
         end
+        local dispHist = self:getDisplayHist(e)
         for i = 1, FieldListHUD.MAX_HIST do
-            self:drawFruitCell(self:getEntryByFruitName(rec.hist[i]), cols[6 + i].x, ry, cols[6 + i].w, rowH, textSize)
+            self:drawFruitCell(self:getEntryByFruitName(dispHist[i]), cols[6 + i].x, ry, cols[6 + i].w, rowH, textSize)
         end
         end
     end
@@ -4614,7 +4654,9 @@ function FieldListHUD:collectFruitTotals()
             if ov ~= nil then
                 curIndex, curName = ovIndex, string.upper(rec.cur or "")
             elseif e.fruitIndex ~= nil and e.growthState ~= nil and e.growthState >= 1
-                and (e.maxGrowth == nil or e.growthState <= e.maxGrowth) then
+                and (e.maxGrowth == nil or e.growthState <= e.maxGrowth
+                    or FieldListHUD.MULTI_CUT[string.upper(e.fruitName or "")]) then
+                -- Mehrschnittfrüchte wachsen nach dem Schnitt (5/4, 6/4) weiter und zählen weiter als stehend
                 curIndex, curName = e.fruitIndex, string.upper(e.fruitName or "")
             end
             -- Zwischenfrüchte (Gründüngung) sind keine Ernte: Feld gilt als leer
@@ -5094,6 +5136,34 @@ function FieldListHUD:getRowStock(item)
     return sum
 end
 
+-- Fehlmenge je Jahr (1 = dieses, 2 = nächstes, 3 = in 2 Jahren) nach Verrechnung mit dem Lager.
+-- Das Lager läuft kumulativ durch: Bestand nach einem Jahr = Bestand davor + Ertrag - Bedarf (nie unter 0);
+-- ein negativer Rest ist die Fehlmenge dieses Jahres.
+function FieldListHUD:getStockShortages(item)
+    local stock = self:getRowStock(item) or 0
+    local dem = item.demand or 0
+    local isCut = item.multiCut or FieldListHUD.MULTI_CUT[item.name]
+    local cutsF = (isCut and item.cuts) or 1
+    local ys = {
+        ((item.now or 0) + ((not item.isAnimal and item.planned) or 0)) * cutsF,
+        (item.nextYear or 0) * cutsF,
+        (item.in2 or 0) * cutsF,
+    }
+    -- Was schon in den Produktionen eingelagert ist, ist bereits geliefert: wird einmalig vom Bedarf des ersten Jahres abgezogen
+    local inp = (not item.isAnimal and not item.isStraw) and (self:getRowInput(item) or 0) or 0
+    local dems = { math.max(0, dem - inp), dem, dem }
+    local out, s = {}, stock
+    out.rest = {}
+    for i = 1, 3 do
+        local bal = s + ys[i] - dems[i]
+        out[i] = math.max(0, -bal)
+        s = math.max(0, bal)
+        -- voraussichtlicher Lagerbestand nach diesem Jahr (Überschuss zählt mit)
+        out.rest[i] = s
+    end
+    return out
+end
+
 -- Zwischenspeicher für die Liste der Seite 3: höchstens einmal pro Sekunde neu, sofort neu nach Mausklick/Taste
 function FieldListHUD:getPage3ListCached()
     local c = self.p3Cache
@@ -5467,6 +5537,13 @@ function FieldListHUD:drawFruitPage(L)
     local list = self:getPage3ListCached()
     local rows = math.max(1, math.floor((top - bottom - headH) / rowH))
     self.p3 = self.p3 or { offset = 0, max = 0 }
+    do
+        local lk = string.format("%d/%d", #list, rows)
+        if lk ~= self.p3LogKey then
+            self.p3LogKey = lk
+            print(string.format("FieldManager: Seite 4 Zeilen=%d sichtbar=%d (Scrollbalken %s)", #list, rows, #list > rows and "ja" or "nein"))
+        end
+    end
     self.p3.max = math.max(0, #list - rows)
     self.p3.offset = math.max(0, math.min(self.p3.offset or 0, self.p3.max))
     self.p3.area = { x = x0, y = bottom, w = w0, h = top - bottom }
@@ -5483,6 +5560,7 @@ function FieldListHUD:drawFruitPage(L)
         { title = T("col_diff"),              f = 0.11 },
         { title = T("col_stock"),           f = 0.10 },
         { title = T("col_input"),           f = 0.11 },
+        { title = T("col_rest"),            f = 0.11 },
         { title = T("col_short"),           f = 0.11 },
         { title = T("col_need_area"),           f = 0.11 },
     }
@@ -5624,11 +5702,26 @@ function FieldListHUD:drawFruitPage(L)
             renderText(cols[5].x + 0.008, ry + rowH / 2, 0.013, "-")
         end
         local stock = self:getRowStock(item)
+        -- Startbestand des Jahres im Reiter: dieses Jahr der echte Bestand, später der Restbestand des Vorjahres
+        if stock ~= nil and self.p3Mode ~= nil and self.p3Mode ~= "this" and not item.isAnimal and not item.isStraw then
+            local shs0 = self:getStockShortages(item)
+            stock = shs0.rest[(self.p3Mode == "in2") and 2 or 1] or 0
+        end
         setTextColor(unpack((stock or 0) > 0 and self.colorTitle or self.colorSub))
         renderText(cols[6].x + 0.008, ry + rowH / 2, 0.013, fmtLiters(stock))
         local inp = self:getRowInput(item)
         setTextColor(unpack(inp > 0 and self.colorTitle or self.colorSub))
         renderText(cols[7].x + 0.008, ry + rowH / 2, 0.013, fmtLiters(inp))
+        -- Restbestand: voraussichtlicher Lagerbestand am Ende des Jahres des gewählten Reiters (Lager + Ertrag - Bedarf)
+        if not item.isAnimal and not item.isStraw and stock ~= nil then
+            local shs = self:getStockShortages(item)
+            local rest = shs.rest[(self.p3Mode == "in2") and 3 or ((self.p3Mode == "next") and 2 or 1)] or 0
+            setTextColor(unpack(rest > 0 and self.colorTitle or self.colorSub))
+            renderText(cols[8].x + 0.008, ry + rowH / 2, 0.013, fmtLiters(rest))
+        else
+            setTextColor(unpack(self.colorSub))
+            renderText(cols[8].x + 0.008, ry + rowH / 2, 0.013, "-")
+        end
         -- Fehlmenge = Jahresbedarf minus Ertrag der Felder (steht + geplant aus N+1), ohne Lager.
         -- Nur Feldfrüchte; Schnittfrüchte (pro Schnitt) und Tiere werden hier nicht gerechnet.
         local short, shortNoPlan = 0, 0
@@ -5638,9 +5731,21 @@ function FieldListHUD:drawFruitPage(L)
         end
         setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
         setTextAlignment(RenderText.ALIGN_LEFT)
+        local shortStock = short
         if short > 0 then
-            setTextColor(1, 0.4, 0.4, 1)
-            renderText(cols[8].x + 0.008, ry + rowH / 2, 0.013, fmtLiters(short))
+            local shs = self:getStockShortages(item)
+            shortStock = shs[(self.p3Mode == "in2") and 3 or ((self.p3Mode == "next") and 2 or 1)] or short
+        end
+        if short > 0 then
+            -- rot: Lager deckt nichts, orange: teilweise, grün: Lager deckt die Fehlmenge ganz
+            if shortStock <= 0.5 then
+                setTextColor(unpack(self.colorArea))
+            elseif shortStock < short - 0.5 then
+                setTextColor(unpack(self.colorWork))
+            else
+                setTextColor(1, 0.4, 0.4, 1)
+            end
+            renderText(cols[9].x + 0.008, ry + rowH / 2, 0.013, fmtLiters(shortStock <= 0.5 and 0 or shortStock))
             local ft = g_fruitTypeManager:getFruitTypeByName(item.name)
             local perHa = ft ~= nil and ((item.isWindrow and ft.windrowLiterPerSqm or ft.literPerSqm) or 0) * 10000 or 0
             -- Ertrag je ha = Basis x (1 + Prozent/100); Prozent = Schnitt der Felder dieser Frucht, sonst 100 %
@@ -5653,23 +5758,26 @@ function FieldListHUD:drawFruitPage(L)
                 end
             end
             perHa = perHa * (1 + avgPct / 100) * cutsF
-            if perHa > 0 then
+            if shortStock <= 0.5 then
+                setTextColor(unpack(self.colorSub))
+                renderText(cols[10].x + 0.008, ry + rowH / 2, 0.013, "-")
+            elseif perHa > 0 then
                 setTextColor(unpack(self.colorWork))
-                renderText(cols[9].x + 0.008, ry + rowH / 2, 0.013, string.format("%.1f ha", short / perHa))
+                renderText(cols[10].x + 0.008, ry + rowH / 2, 0.013, string.format("%.1f ha", shortStock / perHa))
             else
                 setTextColor(unpack(self.colorSub))
-                renderText(cols[9].x + 0.008, ry + rowH / 2, 0.013, "-")
+                renderText(cols[10].x + 0.008, ry + rowH / 2, 0.013, "-")
             end
         elseif shortNoPlan > 0 then
             -- nur dank der geplanten Folgefrucht gedeckt: hellblau
             setTextColor(unpack(self.colorNoFruit))
-            renderText(cols[8].x + 0.008, ry + rowH / 2, 0.013, "0 l")
+            renderText(cols[9].x + 0.008, ry + rowH / 2, 0.013, "0 l")
             setTextColor(unpack(self.colorSub))
-            renderText(cols[9].x + 0.008, ry + rowH / 2, 0.013, "-")
+            renderText(cols[10].x + 0.008, ry + rowH / 2, 0.013, "-")
         else
             setTextColor(unpack(self.colorSub))
-            renderText(cols[8].x + 0.008, ry + rowH / 2, 0.013, "-")
             renderText(cols[9].x + 0.008, ry + rowH / 2, 0.013, "-")
+            renderText(cols[10].x + 0.008, ry + rowH / 2, 0.013, "-")
         end
         end
     end
@@ -6114,9 +6222,12 @@ function FieldListHUD:drawSeasonPage(L)
         end
     end
 
-    -- gestrichelte Linie in der Mitte des aktuellen Monats
+    -- gestrichelte Linie am heutigen Tag (wandert durch den Monat)
     if curM ~= nil then
-        local lx0 = math.floor((gx + (pos(curM) - 0.5) * cellW) * sw + 0.5) / sw
+        local dpp = env.daysPerPeriod or 1
+        local frac = (((env.currentDay or 1) - 1) % dpp + (env.dayTime or 0) / 86400000) / dpp
+        frac = math.max(0, math.min(1, frac))
+        local lx0 = math.floor((gx + (pos(curM) - 1 + frac) * cellW) * sw + 0.5) / sw
         local dy = y + 0.002
         while dy < top - bandH - 0.002 do
             self:drawRect(lx0, dy, 1.5 / sw, 0.004, { 1, 1, 1, 0.9 })
@@ -6861,15 +6972,18 @@ function FieldListHUD:planAllNext()
         for _, it in ipairs(list) do
             if it.name ~= nil and not it.isAnimal and not it.isStraw and not it.isWindrow and not it.isHeader
                 and not it.multiCut and not FieldListHUD.MULTI_CUT[it.name] then
-                shortH[1][it.name] = (it.demand or 0) - (it.nextYear or 0)
-                shortH[2][it.name] = (it.demand or 0) - (it.in2 or 0)
+                -- Fehlmenge nach Verrechnung mit dem Lager (kumulativ über die Jahre)
+                local shs = self:getStockShortages(it)
+                shortH[1][it.name] = shs[2]
+                shortH[2][it.name] = shs[3]
             end
         end
         -- Schwad-Zeilen (z. B. Flachsschwad, Hanfschwad): Fehlmenge gehört zur Frucht, die den Schwad liefert
         for _, it in ipairs(list) do
             if it.isWindrow and it.name ~= nil then
-                shortWH[1][it.name] = (shortWH[1][it.name] or 0) + (it.demand or 0) - (it.nextYear or 0)
-                shortWH[2][it.name] = (shortWH[2][it.name] or 0) + (it.demand or 0) - (it.in2 or 0)
+                local shs = self:getStockShortages(it)
+                shortWH[1][it.name] = (shortWH[1][it.name] or 0) + shs[2]
+                shortWH[2][it.name] = (shortWH[2][it.name] or 0) + shs[3]
             end
         end
         local ALIAS = FieldListHUD.FRUIT_ALIAS
@@ -7534,11 +7648,18 @@ function FieldListHUD:getHudRows()
                 end
                 local txt = best.short or best.text or "?"
                 if #items > 1 then txt = txt .. " (+)" end
-                table.insert(rows, { id = e.id, text = txt, harvest = best.harvest == true })
+                table.insert(rows, { id = e.id, text = txt, harvest = best.harvest == true, prio = best.prio or 99 })
             end
         end
     end)
-    table.sort(rows, function(a, b) return a.id < b.id end)
+    if self.settings.sortPrio == true then
+        table.sort(rows, function(a, b)
+            if a.prio ~= b.prio then return a.prio < b.prio end
+            return a.id < b.id
+        end)
+    else
+        table.sort(rows, function(a, b) return a.id < b.id end)
+    end
     self.hudRows = rows
     return rows
 end
@@ -7644,6 +7765,23 @@ function FieldListHUD:drawHud()
     local minY = R.y + bottomPad + pad
     local visibleN = math.max(1, math.floor((top - minY) / lineH))
     local maxScroll = math.max(0, #rows - visibleN)
+    -- Wechselt das Feld unter dem Spieler, die Liste so scrollen, dass seine Zeile sichtbar ist
+    if fid ~= self.hudScrollFid then
+        self.hudScrollFid = fid
+        if fid ~= nil then
+            for i, r in ipairs(rows) do
+                if r.id == fid then
+                    local s = self.hudScroll or 0
+                    if i <= s then
+                        self.hudScroll = i - 1
+                    elseif i > s + visibleN then
+                        self.hudScroll = i - visibleN
+                    end
+                    break
+                end
+            end
+        end
+    end
     self.hudScroll = math.max(0, math.min(maxScroll, self.hudScroll or 0))
     local col2 = R.x + pad + innerW * 0.40
     setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)

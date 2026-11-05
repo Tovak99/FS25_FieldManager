@@ -265,7 +265,9 @@ function SeasonalProduction.apply()
             local f, ramp = 1, 1
             if on then f, ramp = SeasonalProduction.getFactor(d.season, monthPos) end
             if f < 1e-6 then f = 1e-6 end
-            if d.appliedFactor == nil or math.abs(d.appliedFactor - f) > 0.002 then
+            -- Nullbereich immer exakt uebernehmen, sonst bleibt ein Rest (~0.002 x Zyklen) hängen
+            local zeroChange = d.appliedFactor ~= nil and ((d.appliedFactor <= 1e-5) ~= (f <= 1e-5))
+            if d.appliedFactor == nil or zeroChange or math.abs(d.appliedFactor - f) > 0.002 then
                 local was = d.appliedFactor
                 if (was == nil and f ~= 1) or (was ~= nil and ((was <= 1e-5) ~= (f <= 1e-5))) then
                     print(string.format("SeasonalProduction: %s -> %s (Faktor %.2f, Monatsposition %.2f)", d.name,

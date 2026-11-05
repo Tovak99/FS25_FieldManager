@@ -144,6 +144,8 @@
         <text name="fl_opt_sec_hud" text="HUD"/>
         <text name="fl_opt_hud" text="HUD-Fenster"/>
         <text name="fl_opt_hud_hint" text="Zeigt im Spiel eine Liste aller Felder mit offenen Arbeiten, dein aktuelles Feld ist hervorgehoben. Mit Alt+F (änderbar) schaltest du die Maus ein, das Einstellungs-Symbol im Titel öffnet den Bearbeitungsmodus zum Verschieben und Ändern der Größe."/>
+        <text name="fl_opt_hud_sort" text="HUD nach Arbeitsprio sortieren"/>
+        <text name="fl_opt_hud_sort_hint" text="AUS: Sortierung nach Feldnummer. EIN: die dringendsten Arbeiten (z. B. Ernte) stehen oben."/>
         <text name="fl_pop_now" text="jetzt"/>
         <text name="fl_pop_h_this" text="dieses Jahr"/>
         <text name="fl_pop_h_next" text="nächstes Jahr"/>
@@ -246,6 +248,7 @@
         <text name="fl_col_diff" text="DIFFERENZ"/>
         <text name="fl_col_stock" text="LAGERBESTAND"/>
         <text name="fl_col_input" text="IN PRODUKTIONEN"/>
+        <text name="fl_col_rest" text="RESTBESTAND"/>
         <text name="fl_tab_this" text="DIESES JAHR"/>
         <text name="fl_tab_next" text="NÄCHSTES JAHR"/>
         <text name="fl_tab_in2" text="IN 2 JAHREN"/>

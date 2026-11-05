@@ -144,6 +144,8 @@
         <text name="fl_opt_sec_hud" text="HUD"/>
         <text name="fl_opt_hud" text="HUD window"/>
         <text name="fl_opt_hud_hint" text="Shows an in-game list of all fields with pending work, your current field is highlighted. Press Alt+F (rebindable) to enable the mouse; the settings icon in the title opens edit mode for moving and resizing."/>
+        <text name="fl_opt_hud_sort" text="Sort HUD by work priority"/>
+        <text name="fl_opt_hud_sort_hint" text="OFF: sorted by field number. ON: the most urgent work (e.g. harvest) is listed first."/>
         <text name="fl_pop_now" text="now"/>
         <text name="fl_pop_h_this" text="this year"/>
         <text name="fl_pop_h_next" text="next year"/>
@@ -246,6 +248,7 @@
         <text name="fl_col_diff" text="DIFFERENCE"/>
         <text name="fl_col_stock" text="STOCK"/>
         <text name="fl_col_input" text="IN PRODUCTIONS"/>
+        <text name="fl_col_rest" text="REMAINING STOCK"/>
         <text name="fl_tab_this" text="THIS YEAR"/>
         <text name="fl_tab_next" text="NEXT YEAR"/>
         <text name="fl_tab_in2" text="IN 2 YEARS"/>

@@ -1049,6 +1049,10 @@ function FieldListHUD:saveData(dir)
             if rec.post ~= nil and rec.post ~= "" then
                 setXMLString(h, key .. "#post", rec.post)
             end
+            do
+                local hs = FieldListHUD.harvToString(rec)
+                if hs ~= "" then setXMLString(h, key .. "#harv", hs) end
+            end
             if rec.sowFactor ~= nil then
                 setXMLFloat(h, key .. "#sowF", rec.sowFactor)
                 setXMLString(h, key .. "#sowFruit", rec.sowFruit or "")
@@ -1132,6 +1136,7 @@ function FieldListHUD:loadData(dir)
             rec.sprayKey = getXMLInt(h, key .. "#sprayKey")
             do local pv = getXMLString(h, key .. "#post"); rec.post = (pv ~= nil and pv ~= "") and pv or nil end
             rec.sowFruit = val("sowFruit")
+            rec.harv = FieldListHUD.parseHarv(val("harv"))
             i = i + 1
             count = count + 1
         end
@@ -1345,7 +1350,14 @@ function FieldListHUD:getWorkItemsAll(entry)
             end
         end
     end
-    if self:needsSowing(entry) and self:canSowNow(self.store[entry.id].next) then
+    local rcSow = self.store ~= nil and self.store[entry.id] or nil
+    local sowDue = self:needsSowing(entry) and self:canSowNow(rcSow.next)
+    -- Erntereifes Feld: ist das Saatfenster der Folgefrucht schon offen, steht die Aussaat im selben Monat an (nach der Ernte)
+    if not sowDue and entry.harvestReady and not FieldListHUD.isCatchCrop(entry.fruitName)
+        and rcSow ~= nil and rcSow.next ~= nil and not rcSow.manual and self:canSowNow(rcSow.next) then
+        sowDue = true
+    end
+    if sowDue then
         local ne = self:getNextFruitEntry(entry)
         table.insert(items, { prio = 7, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?"), short = T("work_sow_short") })
     end
@@ -3044,7 +3056,7 @@ FieldListHUD.PAGE_ORDER = { 1, 4, 2, 3 }
 
 -- Erntekalender (intern 6) gibt es nur bei eingeschalteter Option "Saisonale Produktion"
 function FieldListHUD.getPageOrder()
-    local o = { 1, 4, 2, 3 }
+    local o = { 1, 4, 2, 3, 7 }
     if FieldListHUD.seasonal == true then o[#o + 1] = 6 end
     return o
 end
@@ -5537,13 +5549,6 @@ function FieldListHUD:drawFruitPage(L)
     local list = self:getPage3ListCached()
     local rows = math.max(1, math.floor((top - bottom - headH) / rowH))
     self.p3 = self.p3 or { offset = 0, max = 0 }
-    do
-        local lk = string.format("%d/%d", #list, rows)
-        if lk ~= self.p3LogKey then
-            self.p3LogKey = lk
-            print(string.format("FieldManager: Seite 4 Zeilen=%d sichtbar=%d (Scrollbalken %s)", #list, rows, #list > rows and "ja" or "nein"))
-        end
-    end
     self.p3.max = math.max(0, #list - rows)
     self.p3.offset = math.max(0, math.min(self.p3.offset or 0, self.p3.max))
     self.p3.area = { x = x0, y = bottom, w = w0, h = top - bottom }
@@ -6240,6 +6245,241 @@ function FieldListHUD:drawSeasonPage(L)
     setTextBold(false)
 end
 
+-- Seite 7: tatsächlich geerntete Mengen nach Frucht, Details je Feld
+function FieldListHUD:getHarvestData(tab)
+    local env = g_currentMission ~= nil and g_currentMission.environment or nil
+    local year = ((env ~= nil and env.currentYear) or 1) - (tab - 1)
+    local own = {}
+    for _, e in ipairs(self.fields or {}) do own[e.id] = e end
+    local byFruit, list = {}, {}
+    for id, rec in pairs(self.store or {}) do
+        local e = own[id]
+        local t = e ~= nil and rec.harv ~= nil and rec.harv[year] or nil
+        if t ~= nil then
+            for name, l in pairs(t) do
+                if l > 0 then
+                    local f = byFruit[name]
+                    if f == nil then
+                        local info = self:getEntryByFruitName(name)
+                        f = { name = name, title = info ~= nil and info.fruitTitle or name,
+                              icon = info ~= nil and info.iconFilename or nil, total = 0, fields = {} }
+                        byFruit[name] = f
+                        list[#list + 1] = f
+                    end
+                    f.total = f.total + l
+                    f.fields[#f.fields + 1] = { id = id, area = e.area or 0, liters = l }
+                end
+            end
+        end
+    end
+    table.sort(list, function(a, b) return a.total > b.total end)
+    for _, f in ipairs(list) do
+        table.sort(f.fields, function(a, b) return a.liters > b.liters end)
+    end
+    return list, year
+end
+
+function FieldListHUD:drawHarvestPage(L)
+    local x0, w0 = L.ax, L.aw - 0.015
+    local top = L.ay + L.ah
+    self.hv = self.hv or { tab = 1, offL = 0, offR = 0 }
+    local hv = self.hv
+    setTextAlignment(RenderText.ALIGN_LEFT)
+    setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
+    setTextBold(true)
+    setTextColor(unpack(self.colorTitle))
+    renderText(x0, top, 0.036, T("title_harv"))
+    setTextBold(false)
+
+    -- Reiter
+    hv.tabs = {}
+    do
+        local ts, th, gap = 0.012, 0.030, 0.006
+        local tabs = { T("tab_this"), T("tab_hv_last"), T("tab_hv_prev") }
+        local tx = x0 + getTextWidth(0.036, T("title_harv")) + 0.030
+        local ty = top - 0.040
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        for i, title in ipairs(tabs) do
+            local active = hv.tab == i
+            local w = getTextWidth(ts, title) + 0.024
+            self:drawFrame(tx, ty, w, th, active and self.colorArea or self.colorTile, self.colorBorder)
+            setTextBold(active)
+            setTextColor(unpack(active and { 0.02, 0.02, 0.02, 1 } or self.colorTitle))
+            renderText(tx + 0.012, ty + th / 2, ts, title)
+            setTextBold(false)
+            hv.tabs[#hv.tabs + 1] = { x = tx, y = ty, w = w, h = th, tab = i }
+            tx = tx + w + gap
+        end
+    end
+    top = top - 0.060
+
+    local list, year = self:getHarvestData(hv.tab)
+    local bottom = L.ay + L.pad + 0.026
+    local headH, rowH = 0.032, 0.036
+    local rows = math.max(1, math.floor((top - bottom - headH) / rowH))
+    local gapX = 0.012
+    local lw = w0 * 0.42
+    local rx = x0 + lw + gapX
+    local rw = w0 - lw - gapX
+    local aspect = g_screenAspectRatio or (16 / 9)
+
+    -- gewählte Frucht prüfen
+    local sel = nil
+    for _, f in ipairs(list) do if f.name == hv.sel then sel = f end end
+    if sel == nil then sel = list[1]; hv.sel = sel ~= nil and sel.name or nil end
+
+    local needL = #list > rows
+    local lwr = needL and (lw - 0.012) or lw
+    hv.offL = math.max(0, math.min(hv.offL or 0, math.max(0, #list - rows)))
+    hv.maxL = math.max(0, #list - rows)
+    hv.areaL = { x = x0, y = bottom, w = lw, h = top - bottom }
+    hv.areaR = { x = rx, y = bottom, w = rw, h = top - bottom }
+    hv.rows = {}
+
+    -- Kopf links
+    local function head(x, w, txt, align)
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        setTextAlignment(align or RenderText.ALIGN_LEFT)
+        setTextBold(true)
+        setTextColor(unpack(self.colorSub))
+        renderText(align == RenderText.ALIGN_RIGHT and (x + w) or x, top - headH / 2, 0.011, txt)
+        setTextBold(false)
+    end
+    local iconH = rowH * 0.74
+    local iconW = iconH / aspect
+    head(x0 + 0.010 + iconW + 0.008, lw, T("hv_fruit"))
+    head(x0, lwr - 0.010, T("hv_amount"), RenderText.ALIGN_RIGHT)
+    self:drawRect(x0, top - headH, lw, 0.0015, self.colorArea)
+
+    if #list == 0 then
+        setTextAlignment(RenderText.ALIGN_LEFT)
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
+        setTextColor(unpack(self.colorSub))
+        renderText(x0 + 0.010, top - headH - 0.016, 0.014, T("hv_none"))
+    end
+
+    for i = 1, rows do
+        local f = list[i + hv.offL]
+        if f == nil then break end
+        local ry = top - headH - i * rowH
+        local active = sel ~= nil and f.name == sel.name
+        self:drawFrame(x0, ry + 0.001, lwr, rowH - 0.002, active and { 0.10, 0.12, 0.06, 1 } or self.colorTile, active and self.colorArea or self.colorBorder)
+        local iy = ry + (rowH - iconH) / 2
+        self:drawRect(x0 + 0.010, iy, iconW, iconH, self.colorIcon)
+        local ic = f.icon ~= nil and self:getIcon(f.icon) or nil
+        if ic ~= nil then
+            ic:setPosition(x0 + 0.010, iy); ic:setDimension(iconW, iconH); ic:render()
+        end
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        setTextAlignment(RenderText.ALIGN_LEFT)
+        setTextBold(true)
+        setTextColor(unpack(self.colorTitle))
+        renderText(x0 + 0.010 + iconW + 0.008, ry + rowH / 2, 0.013, f.title)
+        setTextBold(false)
+        setTextAlignment(RenderText.ALIGN_RIGHT)
+        setTextColor(unpack(active and self.colorArea or self.colorTitle))
+        renderText(x0 + lwr - 0.010, ry + rowH / 2, 0.013, fmtLiters(f.total))
+        hv.rows[#hv.rows + 1] = { x = x0, y = ry, w = lwr, h = rowH, name = f.name }
+    end
+
+    -- Scrollleiste links
+    hv.trackL, hv.thumbL = nil, nil
+    if needL then
+        local trackH = rows * rowH
+        local thumbH = math.max(0.03, trackH * rows / #list)
+        local frac = hv.maxL > 0 and (hv.offL / hv.maxL) or 0
+        hv.trackL = { x = x0 + lw - 0.006, y = top - headH - trackH, w = 0.006, h = trackH }
+        hv.thumbL = { x = hv.trackL.x, y = hv.trackL.y + trackH - thumbH - (trackH - thumbH) * frac, w = 0.006, h = thumbH }
+        self:drawRect(hv.trackL.x, hv.trackL.y, hv.trackL.w, hv.trackL.h, self.colorTrack)
+        self:drawRect(hv.thumbL.x, hv.thumbL.y, hv.thumbL.w, hv.thumbL.h, self.colorThumb)
+    end
+
+    -- rechts: Felder der gewählten Frucht
+    self:drawFrame(rx, bottom, rw, top - bottom, self.colorTile, self.colorBorder)
+    hv.trackR, hv.thumbR = nil, nil
+    if sel ~= nil then
+        local cols = {
+            { t = T("hv_field"),  f = 0.16, a = RenderText.ALIGN_LEFT },
+            { t = T("hv_area"),   f = 0.20, a = RenderText.ALIGN_RIGHT },
+            { t = T("hv_amount"), f = 0.24, a = RenderText.ALIGN_RIGHT },
+            { t = T("hv_share"),  f = 0.17, a = RenderText.ALIGN_RIGHT },
+            { t = T("hv_perha"),  f = 0.23, a = RenderText.ALIGN_RIGHT },
+        }
+        local pad = 0.010
+        local rows2 = math.max(1, math.floor((top - bottom - headH - rowH) / rowH))
+        local needR = #sel.fields > rows2
+        local cw = rw - 2 * pad - (needR and 0.010 or 0)
+        local xs, cx = {}, rx + pad
+        for k, c in ipairs(cols) do xs[k] = cx; cx = cx + cw * c.f end
+        local function cellX(k)
+            local c = cols[k]
+            return c.a == RenderText.ALIGN_RIGHT and (xs[k] + cw * c.f - 0.004) or xs[k]
+        end
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        setTextBold(true)
+        setTextColor(unpack(self.colorSub))
+        for k, c in ipairs(cols) do
+            setTextAlignment(c.a)
+            renderText(cellX(k), top - headH / 2, 0.011, c.t)
+        end
+        setTextBold(false)
+        self:drawRect(rx, top - headH, rw, 0.0015, self.colorArea)
+
+        local nf = #sel.fields
+        hv.maxR = math.max(0, nf - rows2)
+        hv.offR = math.max(0, math.min(hv.offR or 0, hv.maxR))
+        for i = 1, rows2 do
+            local fd = sel.fields[i + hv.offR]
+            if fd == nil then break end
+            local ry = top - headH - i * rowH
+            if i % 2 == 0 then self:drawRect(rx + 0.002, ry, rw - 0.004, rowH, { 1, 1, 1, 0.04 }) end
+            setTextColor(unpack(self.colorTitle))
+            local vals = {
+                string.format("%s %d", T("hv_field_s"), fd.id),
+                string.format("%.2f ha", fd.area),
+                fmtLiters(fd.liters),
+                string.format("%.1f %%", sel.total > 0 and fd.liters / sel.total * 100 or 0),
+                fd.area > 0 and fmtLiters(fd.liters / fd.area) or "-",
+            }
+            for k, c in ipairs(cols) do
+                setTextAlignment(c.a)
+                setTextBold(k == 1)
+                renderText(cellX(k), ry + rowH / 2, 0.013, vals[k])
+            end
+            setTextBold(false)
+        end
+        hv.trackR, hv.thumbR = nil, nil
+        if needR then
+            local trackH = rows2 * rowH
+            local thumbH = math.max(0.03, trackH * rows2 / nf)
+            local frac = hv.maxR > 0 and (hv.offR / hv.maxR) or 0
+            hv.trackR = { x = rx + rw - 0.012, y = top - headH - trackH, w = 0.006, h = trackH }
+            hv.thumbR = { x = hv.trackR.x, y = hv.trackR.y + trackH - thumbH - (trackH - thumbH) * frac, w = 0.006, h = thumbH }
+            self:drawRect(hv.trackR.x, hv.trackR.y, hv.trackR.w, hv.trackR.h, self.colorTrack)
+            self:drawRect(hv.thumbR.x, hv.thumbR.y, hv.thumbR.w, hv.thumbR.h, self.colorThumb)
+        end
+        -- Summenzeile
+        local sy = bottom
+        self:drawRect(rx, sy + rowH, rw, 0.0015, self.colorArea)
+        local totArea = 0
+        for _, fd in ipairs(sel.fields) do totArea = totArea + fd.area end
+        local vals = { T("hv_sum"), string.format("%.2f ha", totArea), fmtLiters(sel.total), "100 %", totArea > 0 and fmtLiters(sel.total / totArea) or "-" }
+        setTextBold(true)
+        setTextColor(unpack(self.colorArea))
+        for k, c in ipairs(cols) do
+            setTextAlignment(c.a)
+            renderText(cellX(k), sy + rowH / 2, 0.013, vals[k])
+        end
+        setTextBold(false)
+    end
+
+    -- Hinweis
+    setTextAlignment(RenderText.ALIGN_LEFT)
+    setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
+    setTextColor(unpack(self.colorSub))
+    renderText(x0, L.ay + L.pad + 0.016, 0.0105, string.format(T("hv_hint"), year))
+end
+
 -- Wird vom Hook aufgerufen, solange das ESC-Menü gezeichnet wird
 function FieldListHUD:drawInMenu()
     local menu = g_inGameMenu
@@ -6278,9 +6518,11 @@ function FieldListHUD:drawInMenu()
         return
     end
 
-    if self.page == 2 or self.page == 3 or self.page == 4 or self.page == 5 or self.page == 6 then
+    if self.page == 2 or self.page == 3 or self.page == 4 or self.page == 5 or self.page == 6 or self.page == 7 then
         self.hitRects = {}
-        if self.page == 6 then
+        if self.page == 7 then
+            self:drawHarvestPage(L)
+        elseif self.page == 6 then
             self:drawSeasonPage(L)
         elseif self.page == 5 then
             self:drawOptionsPage(L)
@@ -6456,6 +6698,53 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
     end
 
     if self.page == 6 then
+        return true
+    end
+
+    if self.page == 7 then
+        local hv = self.hv
+        if hv ~= nil then
+            local function dragTo(which, y)
+                local tr, th = hv["track" .. which], hv["thumb" .. which]
+                local mx = hv["max" .. which]
+                if tr == nil or th == nil or not mx or mx <= 0 then return end
+                local range = tr.h - th.h
+                if range <= 0 then return end
+                local frac = math.max(0, math.min(1, ((tr.y + tr.h - th.h / 2) - y) / range))
+                hv["off" .. which] = math.floor(frac * mx + 0.5)
+            end
+            if hv.drag ~= nil then
+                if isUp then hv.drag = nil else dragTo(hv.drag, posY) end
+                return true
+            end
+            if isDown and button == left then
+                for _, w in ipairs({ "L", "R" }) do
+                    local tr = hv["track" .. w]
+                    if tr ~= nil and inRect({ x = tr.x - 0.006, y = tr.y, w = tr.w + 0.012, h = tr.h }, posX, posY) then
+                        hv.drag = w
+                        dragTo(w, posY)
+                        return true
+                    end
+                end
+            end
+            if isDown and button == left then
+                for _, t in ipairs(hv.tabs or {}) do
+                    if inRect(t, posX, posY) then hv.tab = t.tab; hv.offL = 0; hv.offR = 0; hv.sel = nil; return true end
+                end
+                for _, r in ipairs(hv.rows or {}) do
+                    if inRect(r, posX, posY) then hv.sel = r.name; hv.offR = 0; return true end
+                end
+            end
+            if isDown and (button == wheelUp or button == wheelDown) then
+                local step = (button == wheelUp) and -1 or 1
+                if inRect(hv.areaL, posX, posY) then
+                    hv.offL = math.max(0, math.min((hv.offL or 0) + step, hv.maxL or 0))
+                elseif inRect(hv.areaR, posX, posY) then
+                    hv.offR = math.max(0, math.min((hv.offR or 0) + step, hv.maxR or 0))
+                end
+                return true
+            end
+        end
         return true
     end
 
@@ -7030,7 +7319,6 @@ function FieldListHUD:planAllNext()
                 local noHist = rec.cur == nil and #(rec.hist or {}) == 0
                 local minPts = (noHist or pass == 2) and 0 or 1
                 local best, bestPts, bestShort, bestOff = nil, -9, 0, 1
-                local why, noDemand = {}, 0
                 for _, o in ipairs(opts) do
                     local nm = o.name
                     -- Erntejahr dieser Frucht auf diesem Feld (Simulation): 1 = nächstes Jahr, 2 = in 2 Jahren
@@ -7066,27 +7354,8 @@ function FieldListHUD:planAllNext()
                                 or (r.points == bestPts and (off < bestOff or (off == bestOff and eff > bestShort))) then
                                 best, bestPts, bestShort, bestOff = nm, r.points, eff, off
                             end
-                        elseif pass == 2 then
-                            local rs = {}
-                            for _, q in ipairs(r.reasons or {}) do table.insert(rs, tostring(q.key) .. "=" .. tostring(q.v)) end
-                            table.insert(why, string.format("%s: %s (Punkte %d, min %d; %s)", nm, r.blocked and "gesperrt" or "Bewertung zu niedrig", r.points or 0, minPts, table.concat(rs, ",")))
-                        end
-                    elseif pass == 2 and nm ~= nil then
-                        -- Nur Früchte mit offener Fehlmenge auflisten, der Rest wird gezählt
-                        if eff <= 0 then
-                            noDemand = noDemand + 1
-                        elseif not sowOk then
-                            table.insert(why, string.format("%s: Ernte-Jahr %s (Fehlmenge %d l)", nm, tostring(off), math.floor(eff)))
-                        elseif not allowed[FieldListHUD.getGroup(nm) or ""] then
-                            table.insert(why, string.format("%s: Gruppe %s nicht erlaubt", nm, tostring(FieldListHUD.getGroup(nm))))
-                        else
-                            table.insert(why, string.format("%s: Rest %d l zu klein fürs Feld (Ernte-Jahr %s)", nm, math.floor(eff), tostring(off)))
                         end
                     end
-                end
-                if best == nil and pass == 2 then
-                    print(string.format("FieldManager-Plan: Feld %s (%.1f ha, letzte Frucht %s, steht %s): keine Folgefrucht. %s | ohne Bedarf: %d",
-                        tostring(e.id), e.area or 0, tostring(rec.cur), tostring(e.fruitName), table.concat(why, "; "), noDemand))
                 end
                 if best ~= nil then
                     rec.next = best
@@ -7105,25 +7374,9 @@ function FieldListHUD:planAllNext()
                     end
                     planned = planned + 1
                 end
-            elseif pass == 2 and rec ~= nil and rec.next == nil and not rec.unused then
-                print(string.format("FieldManager-Plan: Feld %s: gesperrt, Dauerkultur steht (Gruppe %s, %s)", tostring(e.id), tostring(gCur), tostring(e.fruitName)))
             end
         end
         end
-        -- Verbleibende Fehlmengen nach der Planung (Liter nach Lager), zum Prüfen des Algorithmus
-        local rest = {}
-        for hz = 1, 2 do
-            for nm, v in pairs(shortH[hz]) do
-                if v > 0.5 then table.insert(rest, string.format("%s J%d=%d", nm, hz, math.floor(v))) end
-            end
-        end
-        for hz = 1, 2 do
-            for nm, v in pairs(shortWH[hz]) do
-                if v > 0.5 then table.insert(rest, string.format("%s(Schwad) J%d=%d", nm, hz, math.floor(v))) end
-            end
-        end
-        table.sort(rest)
-        print("FieldManager-Plan: geplant=" .. tostring(planned) .. ", verbleibende Fehlmenge: " .. table.concat(rest, ", "))
     end)
     if not ok then
         print("FieldListHUD: Auto-Folgefrucht fehlgeschlagen: " .. tostring(err))
@@ -7353,6 +7606,7 @@ if FSDensityMapUtil ~= nil and FSDensityMapUtil.cutFruitArea ~= nil then
             if ok and type(f) == "number" and f ~= 1 and realArea ~= nil then
                 realArea = realArea * f
             end
+            pcall(FieldListHUD.countHarvest, fruitIndex, realArea, wx, wz, hx, hz)
             return realArea, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
         end)
 end
@@ -7373,6 +7627,58 @@ function FieldListHUD:isAuthority()
     return m == nil or m.getIsServer == nil or m:getIsServer()
 end
 
+
+-- Tatsächlich geerntete Mengen: rec.harv[Jahr][FRUCHT] = Liter (Näherung: Erntefläche x Liter pro m²)
+function FieldListHUD.harvToString(rec)
+    local hp = {}
+    for y, t in pairs(rec.harv or {}) do
+        for n, l in pairs(t) do
+            hp[#hp + 1] = string.format("%d:%s:%d", y, n, math.floor(l + 0.5))
+        end
+    end
+    table.sort(hp)
+    return table.concat(hp, ";")
+end
+
+function FieldListHUD.parseHarv(str)
+    local h = nil
+    for y, n, l in string.gmatch(str or "", "(%d+):([^:;]+):(%d+)") do
+        h = h or {}
+        y = tonumber(y)
+        h[y] = h[y] or {}
+        h[y][n] = tonumber(l)
+    end
+    return h
+end
+
+function FieldListHUD.countHarvest(fruitIndex, realArea, wx, wz, hx, hz)
+    local m = g_currentMission
+    if m == nil or not m:getIsServer() or FieldListHUD.store == nil or realArea == nil or realArea <= 0 then
+        return
+    end
+    local ft = g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    if ft == nil or ft.literPerSqm == nil or ft.name == nil then
+        return
+    end
+    local field = g_fieldManager:getFieldAtWorldPosition(0.5 * (wx + hx), 0.5 * (wz + hz))
+    local env = m.environment
+    if field == nil or env == nil or env.currentYear == nil then
+        return
+    end
+    local rec = FieldListHUD:getRecord(FieldListHUD:getFieldNumber(field))
+    local year = env.currentYear
+    rec.harv = rec.harv or {}
+    if rec.harv[year] == nil then
+        rec.harv[year] = {}
+        for y in pairs(rec.harv) do
+            if y < year - 2 then rec.harv[y] = nil end
+        end
+    end
+    local name = string.upper(ft.name)
+    name = FieldListHUD.FRUIT_ALIAS[name] or name
+    rec.harv[year][name] = (rec.harv[year][name] or 0) + realArea * ft.literPerSqm
+end
+
 FieldListHUD.SER_STR  = { "next", "cur", "skip", "sowFruit", "post" }
 FieldListHUD.SER_BOOL = { "gap", "unused", "manual", "autoNext", "autoOff", "ccPending", "ccPlanned", "done", "skipEmpty" }
 FieldListHUD.SER_NUM  = { "sowFactor", "sprayKey", "lastSpray", "lastGs", "ccGround" }
@@ -7388,6 +7694,10 @@ function FieldListHUD.serializeRec(rec)
     for _, k in ipairs(FieldListHUD.SER_NUM) do
         if rec[k] ~= nil then p[#p + 1] = k .. "=" .. string.format("%.6g", rec[k]) end
     end
+    do
+        local hs = FieldListHUD.harvToString(rec)
+        if hs ~= "" then p[#p + 1] = "harv=" .. hs end
+    end
     p[#p + 1] = "hist=" .. table.concat(rec.hist or {}, ",")
     local ccs = {}
     for n = 1, FieldListHUD.MAX_HIST do
@@ -7397,7 +7707,7 @@ function FieldListHUD.serializeRec(rec)
     return table.concat(p, "|")
 end
 
-function FieldListHUD.deserializeRec(rec, str)
+function FieldListHUD.deserializeRec(rec, str, keepHarv)
     local kv = {}
     for part in string.gmatch(str or "", "[^|]+") do
         local k, v = string.match(part, "^([^=]+)=(.*)$")
@@ -7414,6 +7724,7 @@ function FieldListHUD.deserializeRec(rec, str)
     for _, k in ipairs(FieldListHUD.SER_NUM) do
         rec[k] = kv[k] ~= nil and tonumber(kv[k]) or nil
     end
+    if not keepHarv then rec.harv = FieldListHUD.parseHarv(kv.harv) end
     rec.hist = {}
     for name in string.gmatch(kv.hist or "", "[^,]+") do
         table.insert(rec.hist, name)
@@ -7500,7 +7811,7 @@ function FieldListHUD:onSyncEvent(mode, recs, connection)
                 if owner ~= nil and (farmId == nil or farmId == owner) then
                     local rec = self:getRecord(r.id)
                     local undo = rec.undo
-                    FieldListHUD.deserializeRec(rec, r.s)
+                    FieldListHUD.deserializeRec(rec, r.s, true)
                     rec.undo = undo
                 end
             end

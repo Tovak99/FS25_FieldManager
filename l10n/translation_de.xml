@@ -251,6 +251,19 @@
         <text name="fl_col_rest" text="RESTBESTAND"/>
         <text name="fl_tab_this" text="DIESES JAHR"/>
         <text name="fl_tab_next" text="NÄCHSTES JAHR"/>
+        <text name="fl_title_harv" text="TATSÄCHLICH GEERNTET"/>
+        <text name="fl_tab_hv_last" text="LETZTES JAHR"/>
+        <text name="fl_tab_hv_prev" text="VOR 2 JAHREN"/>
+        <text name="fl_hv_fruit" text="FRUCHT"/>
+        <text name="fl_hv_amount" text="MENGE"/>
+        <text name="fl_hv_field" text="FELD"/>
+        <text name="fl_hv_field_s" text="Feld"/>
+        <text name="fl_hv_area" text="FLÄCHE"/>
+        <text name="fl_hv_share" text="ANTEIL"/>
+        <text name="fl_hv_perha" text="ERTRAG / HA"/>
+        <text name="fl_hv_sum" text="SUMME"/>
+        <text name="fl_hv_none" text="In diesem Zeitraum wurde noch nichts geerntet."/>
+        <text name="fl_hv_hint" text="Jahr %d im Spiel. Gezählt wird ab der Installation des Mods (Näherung: Erntefläche x Liter je m²)."/>
         <text name="fl_tab_in2" text="IN 2 JAHREN"/>
         <text name="fl_col_in2" text="ERTRAG IN 2 JAHREN"/>
         <text name="fl_col_short" text="FEHLMENGE"/>

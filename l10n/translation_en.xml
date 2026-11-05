@@ -251,6 +251,19 @@
         <text name="fl_col_rest" text="REMAINING STOCK"/>
         <text name="fl_tab_this" text="THIS YEAR"/>
         <text name="fl_tab_next" text="NEXT YEAR"/>
+        <text name="fl_title_harv" text="ACTUALLY HARVESTED"/>
+        <text name="fl_tab_hv_last" text="LAST YEAR"/>
+        <text name="fl_tab_hv_prev" text="2 YEARS AGO"/>
+        <text name="fl_hv_fruit" text="CROP"/>
+        <text name="fl_hv_amount" text="AMOUNT"/>
+        <text name="fl_hv_field" text="FIELD"/>
+        <text name="fl_hv_field_s" text="Field"/>
+        <text name="fl_hv_area" text="AREA"/>
+        <text name="fl_hv_share" text="SHARE"/>
+        <text name="fl_hv_perha" text="YIELD / HA"/>
+        <text name="fl_hv_sum" text="TOTAL"/>
+        <text name="fl_hv_none" text="Nothing has been harvested in this period yet."/>
+        <text name="fl_hv_hint" text="Game year %d. Counted since the mod was installed (estimate: harvested area x liters per m²)."/>
         <text name="fl_tab_in2" text="IN 2 YEARS"/>
         <text name="fl_col_in2" text="YIELD IN 2 YEARS"/>
         <text name="fl_col_short" text="SHORTFALL"/>

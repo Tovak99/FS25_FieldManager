@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.3.0** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.0** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -47,12 +47,19 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Planung rechnet mit festem Bonus für geplante Felder, Mehrschnitt-Früchte mit Schnitten pro Jahr
 - Detailfenster je Frucht mit Produktionen, Eingängen und allen beteiligten Feldern (Ernte, Fläche, Ertrag, Menge)
 - Weizen/Sommerweizen und Gerste/Sommergerste werden zusammen geführt
+- Lagerbestand wird über die Jahre fortgeschrieben: Spalte **Restbestand** je Jahr, Fehlmenge nach Abzug von Lager und Eingang aus laufender Produktion; Schwad-Früchte werden gleich behandelt
+- Die automatische Planung berücksichtigt Lager, Restbestand und geplante Ernte
 
 <img width="1481" height="909" alt="image" src="https://github.com/user-attachments/assets/55ee4f4a-7514-4120-9061-c364def5dd55" />
 
-### Seite 5: Erntekalender (saisonale Produktion)
+### Seite 5: Tatsächlich geerntet
+- Zählt die tatsächlich geernteten Mengen je Frucht und Feld (Näherung: Erntefläche x Liter je m²), gespeichert im Spielstand, drei Jahre
+- Reiter Dieses Jahr, Letztes Jahr, Vor 2 Jahren; links die Früchte mit Menge, rechts die Felder der gewählten Frucht mit Fläche, Menge, Anteil in % und Ertrag je Hektar plus Summenzeile
+- Gezählt wird erst ab der Installation des Mods; im Mehrspielerspiel zählt der Server, die Clients bekommen die Werte per Abgleich
+
+### Seite 6: Erntekalender (saisonale Produktion)
 - Eine Zeile je Frucht mit Symbol, Name und Erntezeitraum als Balken, Monate von März bis Februar mit den Jahreszeiten-Symbolen des Spiels
-- Gestrichelte senkrechte Linie in der Mitte des aktuellen Monats
+- Gestrichelte senkrechte Linie am heutigen Tag, sie wandert durch den Monat
 
 ### Saisonale Produktion (Option, Host) (Ab Version 1.1.1.0)
 - Plantagen und Feld-Produktionen (Apfel, Birne, Kirsche, Pflaume, Pfirsich, Mirabelle, Trauben, Beeren, Hopfen, Kürbis, Oliven, Rollrasen, Tannenbäume) produzieren nur in ihrer Saison; Gewächshäuser laufen ganzjährig
@@ -71,6 +78,7 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
   <img width="320" height="159" alt="image" src="https://github.com/user-attachments/assets/adbbf512-a050-4333-88e3-81dd691516a3" />
 
 ### Optionen (Einstellungs-Symbol im Menü)
+- HUD-Sortierung: nach Feldnummer oder nach Arbeitsprio; das HUD scrollt automatisch zum eigenen Feld
 - Fruchtfolge-Ernte ein/aus (Host)
 - Angenommener Bonus für geplante Felder (Standard 95 %)
 - HUD-Fenster ein/aus
@@ -99,7 +107,8 @@ Field Manager adds a page to the pause menu and an optional in-game HUD window.
 - **Work page:** pending work per field in a sortable table with its own filter; postpone a task to next month; no harvest task while the cover crop is growing
 - **Crop rotation planning:** rating of next crops, automatic planning, production demand marker, footer with demand coverage and yield forecast per harvest year
 - **Yield planning:** this year, next year and in 2 years vs. production demand, shortage in liters and hectares, detail window with all fields
-- **Harvest calendar (page 5):** one row per fruit with its harvest period, seasons like the game calendar, dashed line for the current month
+- **Harvested amounts (page 5):** actual harvested liters per crop and field (this year, last year, 2 years ago), with share per field and yield per hectare
+- **Harvest calendar (page 6):** one row per fruit with its harvest period, seasons like the game calendar, dashed line for today
 - **Seasonal production (option):** plantations and field productions only run in season with a smooth ramp up and down; greenhouses run all year
 - **HUD window:** transparent, movable and resizable, list of fields with pending work, tractor symbol; mouse toggle with Alt+F (rebindable)
 - **Options:** crop rotation harvest, assumed bonus for planned fields, HUD on/off, seasonal production on/off

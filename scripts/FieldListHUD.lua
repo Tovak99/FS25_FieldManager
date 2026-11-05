@@ -690,6 +690,13 @@ function FieldListHUD:buildEntry(field, light)
             print(string.format("FieldListHUD: kein Icon für Frucht '%s' gefunden", name))
         end
     end
+    -- Mais für Silage: in Feldliste und Kacheln als "Mais (Silage)" anzeigen
+    if entry.fruitName == "MAIZE" and entry.fruitTitle ~= nil and self.store ~= nil then
+        local rcM = self.store[entry.id]
+        if rcM ~= nil and rcM.curSilage then
+            entry.fruitTitle = entry.fruitTitle .. " (" .. T("use_silage") .. ")"
+        end
+    end
     return entry
 end
 
@@ -909,8 +916,11 @@ function FieldListHUD:trackField(entry)
         self:captureSowFactor(rec, name, entry)
         rec.cur = name
         rec.gap = false
+        rec.curSilage = nil
         if FieldListHUD.sameFruit(rec.next, name) then
+            rec.curSilage = rec.silage
             rec.next = nil -- die geplante Folgefrucht ist jetzt angebaut
+            rec.silage = nil
             rec.autoNext = false
         end
     elseif not FieldListHUD.sameFruit(name, rec.cur) or rec.gap then
@@ -918,8 +928,11 @@ function FieldListHUD:trackField(entry)
         self:pushHist(rec, rec.cur)
         rec.cur = name
         rec.gap = false
+        rec.curSilage = nil
         if FieldListHUD.sameFruit(rec.next, name) then
+            rec.curSilage = rec.silage
             rec.next = nil -- die geplante Folgefrucht ist jetzt angebaut
+            rec.silage = nil
             rec.autoNext = false
         end
         rec.done = false
@@ -936,7 +949,9 @@ function FieldListHUD:trackField(entry)
             self:captureSowFactor(rec, name, entry)
             self:pushHist(rec, rec.cur)
             if FieldListHUD.sameFruit(rec.next, name) then
+                rec.curSilage = rec.silage
                 rec.next = nil -- die geplante Folgefrucht ist jetzt angebaut
+                rec.silage = nil
                 rec.autoNext = false
             end
         end
@@ -963,7 +978,9 @@ function FieldListHUD:advanceFruit(id)
         self:pushHist(rec, old)
     end
     rec.cur = rec.next
+    rec.curSilage = rec.silage
     rec.next = nil
+    rec.silage = nil
     rec.autoNext = false
     rec.skip = old
     rec.skipEmpty = nil
@@ -1041,6 +1058,8 @@ function FieldListHUD:saveData(dir)
             setXMLString(h, key .. "#cc", table.concat(ccs))
             setXMLBool(h, key .. "#ccPending", rec.ccPending == true)
             setXMLBool(h, key .. "#ccPlanned", rec.ccPlanned == true)
+            setXMLBool(h, key .. "#silage", rec.silage == true)
+            setXMLBool(h, key .. "#curSilage", rec.curSilage == true)
             setXMLBool(h, key .. "#autoNext", rec.autoNext == true)
             setXMLBool(h, key .. "#autoOff", rec.autoOff == true)
             if rec.sprayKey ~= nil then
@@ -1130,6 +1149,8 @@ function FieldListHUD:loadData(dir)
             end
             rec.ccPending = getXMLBool(h, key .. "#ccPending") == true
             rec.ccPlanned = getXMLBool(h, key .. "#ccPlanned") == true
+            rec.silage = getXMLBool(h, key .. "#silage") == true
+            rec.curSilage = getXMLBool(h, key .. "#curSilage") == true
             rec.autoNext = getXMLBool(h, key .. "#autoNext") == true
             rec.autoOff = getXMLBool(h, key .. "#autoOff") == true
             rec.sowFactor = getXMLFloat(h, key .. "#sowF")
@@ -1970,6 +1991,16 @@ function FieldListHUD:getFruitOptions()
         end
     end
     table.sort(list, function(a, b) return a.title < b.title end)
+    -- Mais: zwei Einträge, Körner oder Silage (Häckselgut)
+    for i, o in ipairs(list) do
+        if o.name == "MAIZE" then
+            local base = o.title
+            o.title = base .. " (" .. T("use_grain") .. ")"
+            o.silage = false
+            table.insert(list, i + 1, { index = o.index, name = "MAIZE", title = base .. " (" .. T("use_silage") .. ")", silage = true })
+            break
+        end
+    end
     table.insert(list, 1, { index = nil, title = T("no_selection") })
     local nm = {}
     for i, o in ipairs(list) do nm[i] = tostring(o.name) .. "/" .. tostring(o.title) end
@@ -2001,7 +2032,15 @@ function FieldListHUD:getEntryByFruitName(name)
 end
 
 function FieldListHUD:getNextFruitEntry(entry)
-    return self:getEntryByFruitName(self:getRecord(entry.id).next)
+    local rc = self:getRecord(entry.id)
+    local e = self:getEntryByFruitName(rc.next)
+    if e ~= nil and rc.silage and string.upper(rc.next or "") == "MAIZE" then
+        local c = {}
+        for k, v in pairs(e) do c[k] = v end
+        c.fruitTitle = e.fruitTitle .. " (" .. T("use_silage") .. ")"
+        return c
+    end
+    return e
 end
 
 -- Position der gewählten Folgefrucht in der Optionsliste (1 = keine Auswahl)
@@ -2009,10 +2048,17 @@ function FieldListHUD:getNextPos(id)
     local name = self:getRecord(id).next
     if name ~= nil then
         -- zuletzt per Pfeil gewählte Position bevorzugen (falls ein Name mehrfach in der Liste steht)
+        local rcp = self:getRecord(id)
+        local wantSil = rcp.silage == true
         local pp = self.pickPos ~= nil and self.pickPos[id] or nil
         local po = pp ~= nil and self:getFruitOptions()[pp] or nil
-        if po ~= nil and po.name == name then
+        if po ~= nil and po.name == name and (po.silage == true) == wantSil then
             return pp
+        end
+        for i, o in ipairs(self:getFruitOptions()) do
+            if o.name == name and (o.silage == true) == wantSil then
+                return i
+            end
         end
         for i, o in ipairs(self:getFruitOptions()) do
             if o.name == name then
@@ -2038,6 +2084,7 @@ function FieldListHUD:cycleNextFruit(dir)
     end
     local rc = self:getRecord(self.selectedId)
     rc.next = opts[pos].name
+    rc.silage = (opts[pos].silage == true) or nil
     self.pickPos = self.pickPos or {}
     self.pickPos[self.selectedId] = pos
     rc.autoNext = false
@@ -2675,7 +2722,26 @@ function FieldListHUD:drawDetail(d, entry)
     self:drawPlanButton(d.x + d.w - 0.17, secCurTop - 0.024, 0.17, 0.022, "left", "plan_one_btn")
     local _, ovIndex = self:getCurrentOverride(entry)
     local curRating = self:getCurrentRating(entry)
-    local hoverCur = self:drawRatingHeader(d, secCurTop, curRating, T("sec_current"), d.x + d.w - 0.17 - 0.012)
+    -- Mais auf dem Feld: Körner oder Silage (Häckselgut) umschalten
+    self.hitRects.curSilage = nil
+    local recCS = self:getRecord(entry.id)
+    local curNameCS = string.upper(entry.fruitName or ((recCS.manual and recCS.cur) or "") or "")
+    local curRight = d.x + d.w - 0.17 - 0.012
+    if curNameCS == "MAIZE" then
+        local bw0, bh0 = 0.115, 0.022
+        local bx0, by0 = d.x + d.w - 0.17 - 0.008 - bw0, secCurTop - 0.024
+        self:drawFrame(bx0, by0, bw0, bh0, self.colorTile, recCS.curSilage and self.colorArea or self.colorBorder)
+        setTextAlignment(RenderText.ALIGN_CENTER)
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+        setTextBold(true)
+        setTextColor(unpack(recCS.curSilage and self.colorArea or self.colorTitle))
+        renderText(bx0 + bw0 / 2, by0 + bh0 / 2, 0.011, recCS.curSilage and T("cur_use_silage") or T("cur_use_grain"))
+        setTextBold(false)
+        setTextAlignment(RenderText.ALIGN_LEFT)
+        self.hitRects.curSilage = { x = bx0, y = by0, w = bw0, h = bh0 }
+        curRight = bx0 - 0.012
+    end
+    local hoverCur = self:drawRatingHeader(d, secCurTop, curRating, T("sec_current"), curRight)
     if hoverCur and curRating ~= nil then
         top = self:drawRatingPanel(d.x, top, d.w, curRating, entry.fruitTitle)
     else
@@ -3883,7 +3949,7 @@ function FieldListHUD:getProdMap()
     for _, item in ipairs(list or {}) do
         local isCut = item.multiCut or FieldListHUD.MULTI_CUT[item.name]
         local dem = item.demand or 0
-        if dem > 0 and not item.isStraw and not item.isAnimal
+        if dem > 0 and not item.isStraw and not item.isAnimal and not item.isSilage
             and item.fields ~= nil and (not isCut or item.cuts ~= nil) then
             local cutsF = (isCut and item.cuts) or 1
             local totals, per = {}, {}
@@ -4301,6 +4367,13 @@ end
 -- Liefert eine nach Fruchttitel sortierte Liste { name, now, nextYear }
 -- Welches Stroh liefert die Frucht? Name des Füllstoffs (z. B. STRAW, Hülsenfrucht-Stroh der Karte) oder nil (kein Stroh, z. B. Hanf-/Gras-Schwad)
 -- Sucht den Füllstoff "Hülsenfrucht-Stroh" (Name mit STRAW, Titel mit Hülsenfrucht/Legume/Pulse)
+-- Strohsorte (STRAW, Hülsenfrucht-Stroh): Name enthält STRAW, aber keine Pellets und keine Erdbeeren (STRAWBERRY)
+function FieldListHUD.isStrawFillName(n)
+    n = string.upper(n or "")
+    return string.find(n, "STRAW", 1, true) ~= nil and not string.find(n, "PELLET", 1, true)
+        and not string.find(n, "STRAWBERRY", 1, true)
+end
+
 function FieldListHUD.findLegumeStraw()
     if FieldListHUD.legumeStraw ~= nil then
         return FieldListHUD.legumeStraw ~= false and FieldListHUD.legumeStraw or nil
@@ -4310,7 +4383,7 @@ function FieldListHUD.findLegumeStraw()
     for _, ftl in pairs(fts) do
         local n = ftl.name and string.upper(ftl.name) or ""
         local t = string.lower(ftl.title or "")
-        if n ~= "STRAW" and string.find(n, "STRAW", 1, true) ~= nil and not string.find(n, "PELLET", 1, true)
+        if n ~= "STRAW" and FieldListHUD.isStrawFillName(n)
             and (string.find(t, "hülsen", 1, true) or string.find(t, "huelsen", 1, true) or string.find(t, "legume", 1, true)
                 or string.find(t, "pulse", 1, true) or string.find(n, "LEGUM", 1, true) or string.find(n, "PULSE", 1, true)
                 or string.find(n, "PEA", 1, true) or string.find(n, "BEAN", 1, true)) then
@@ -4347,7 +4420,7 @@ function FieldListHUD:getFruitStrawFill(fruitIndex)
             end
         else
             name = string.upper(name)
-            if string.find(name, "STRAW", 1, true) ~= nil then res = name end
+            if FieldListHUD.isStrawFillName(name) then res = name end
         end
     end
     self.strawFillCache[fruitIndex] = res
@@ -4381,6 +4454,8 @@ function FieldListHUD:getProductionDemand()
     local result = {}
     local fillResult = {}
     local windrowResult = {}
+    local strawResult = {}
+    local silageResult = { need = 0, out = 0 }
     local ok, err = pcall(function()
         local mission = g_currentMission
         local pcm = mission ~= nil and mission.productionChainManager or nil
@@ -4414,11 +4489,32 @@ function FieldListHUD:getProductionDemand()
                         perYear = prod.cyclesPerHour * 24 * days * 12
                     end
                 end
+                -- Silage/Häckselgut: Bedarf der aktiven Produktionen und Silage, die sie selbst herstellen (z. B. Fermenter)
+                if perYear ~= nil then
+                    for _, o in pairs(prod.outputs or {}) do
+                        if o.type ~= nil and o.amount ~= nil and g_fillTypeManager:getFillTypeNameByIndex(o.type) == "SILAGE" then
+                            silageResult.out = silageResult.out + o.amount * perYear
+                        end
+                    end
+                    for _, i in pairs(prod.inputs or {}) do
+                        local inName = i.type ~= nil and g_fillTypeManager:getFillTypeNameByIndex(i.type) or nil
+                        if (inName == "SILAGE" or inName == "CHAFF") and i.amount ~= nil then
+                            silageResult.need = silageResult.need + i.amount * perYear
+                        end
+                    end
+                end
                 for _, input in pairs(prod.inputs or {}) do
                     local fti = input.type
                     local ftIdx = fti ~= nil and g_fruitTypeManager:getFruitTypeIndexByFillTypeIndex(fti) or nil
                     local ft = ftIdx ~= nil and g_fruitTypeManager:getFruitTypeByIndex(ftIdx) or nil
                     local fill = fti ~= nil and g_fillTypeManager:getFillTypeNameByIndex(fti) or "?"
+                    -- Strohsorten haben eine eigene Zeile (Stroh-Bereich), keine zweite Fruchtzeile daraus
+                    if FieldListHUD.isStrawFillName(fill) then
+                        ft = nil; ftIdx = nil
+                        if perYear ~= nil and input.amount ~= nil then
+                            strawResult[string.upper(fill)] = (strawResult[string.upper(fill)] or 0) + input.amount * perYear
+                        end
+                    end
                     local ownFill = ft ~= nil and ft.fillType ~= nil and ft.fillType.index or nil
                     local isCutFruit = ft ~= nil and (FieldListHUD.MULTI_CUT[string.upper(ft.name)]
                         or FieldListHUD.CUT_CROPS[string.upper(ft.name)])
@@ -4450,7 +4546,7 @@ function FieldListHUD:getProductionDemand()
         self.prodErrLogged = true
         print("FieldListHUD: Produktionsbedarf konnte nicht ermittelt werden: " .. tostring(err))
     end
-    return result, fillResult, windrowResult
+    return result, fillResult, windrowResult, strawResult, silageResult
 end
 
 -- Tiererzeugnisse (Milch, Ziegenmilch, Wolle) der Ställe, hochgerechnet auf ein Jahr: { [fülltypname] = liter }
@@ -4585,7 +4681,14 @@ function FieldListHUD:collectFruitTotals()
         end
         return r
     end
-    local fruitDemand, fillDemand, windrowDemand = self:getProductionDemand()
+    local silSlot = { name = "MAIZE", now = 0, planned = 0, nextYear = 0, in2 = 0, demand = 0, fields = {} }
+    local function S(name, isSil)
+        if isSil and name == "MAIZE" then return silSlot end
+        return slot(name)
+    end
+    local fruitDemand, fillDemand, windrowDemand, strawDemand, silageInfo = self:getProductionDemand()
+    silageInfo = silageInfo or { need = 0, out = 0 }
+    strawDemand = strawDemand or {}
     -- Schwad-Zeilen (nur wenn eine Produktion die Ware verbraucht), nach Fruchtname gesammelt
     local wrByFruit, wrRows = {}, {}
     for fillName, w in pairs(windrowDemand or {}) do
@@ -4689,8 +4792,8 @@ function FieldListHUD:collectFruitTotals()
                 end
                 local pcur = (100 + pct) * rfCur - 100
                 if curOff == 0 then
-                    slot(curName).now = slot(curName).now + self:getFruitLiters(curIndex, e.area, pcur)
-                    acc(slot(curName), e.area, pcur)
+                    S(curName, rec.curSilage).now = S(curName, rec.curSilage).now + self:getFruitLiters(curIndex, e.area, pcur)
+                    acc(S(curName, rec.curSilage), e.area, pcur)
                     for _, wr in ipairs(wrByFruit[curName] or {}) do
                         wr.now = wr.now + windrowLiters(curIndex, e.area, pcur)
                         acc(wr, e.area, pcur)
@@ -4709,7 +4812,7 @@ function FieldListHUD:collectFruitTotals()
                     end
                 else
                     -- z. B. Wintergetreide, das schon steht: wird erst nach dem Jahreswechsel geerntet
-                    local r = slot(curName)
+                    local r = S(curName, rec.curSilage)
                     local pb = (100 + FieldListHUD.PLAN_BONUS) * rfCur - 100
                     r.nextYear = r.nextYear + self:getFruitLiters(curIndex, e.area, pb)
                     accN(r, e.area, pb)
@@ -4739,7 +4842,7 @@ function FieldListHUD:collectFruitTotals()
                     local rf = self:getRotationFactor(rec, nName)
                     if nOff == 0 then
                         local pe = (100 + pct) * rf - 100
-                        local rp = slot(nName)
+                        local rp = S(nName, rec.silage)
                         rp.planned = rp.planned + self:getFruitLiters(fp.index, e.area, pe)
                         acc(rp, e.area, pe)
                         for _, wr in ipairs(wrByFruit[nName] or {}) do
@@ -4750,7 +4853,7 @@ function FieldListHUD:collectFruitTotals()
                     -- Mehrschnittige Früchte zählen weiter auch im Planungsjahr
                     -- Ernte in 2 Jahren: eigener Reiter
                     if nOff == 2 then
-                        local r = slot(nName)
+                        local r = S(nName, rec.silage)
                         local pb = (100 + FieldListHUD.PLAN_BONUS) * rf - 100
                         r.in2 = r.in2 + self:getFruitLiters(fp.index, e.area, pb)
                         accI(r, e.area, pb)
@@ -4761,7 +4864,7 @@ function FieldListHUD:collectFruitTotals()
                         strawAdd(fp.index, e.area, "in2", ctx.kind)
                     end
                     if nOff == 1 or (FieldListHUD.MULTI_CUT[nName] and nOff == 0) then
-                        local r = slot(nName)
+                        local r = S(nName, rec.silage)
                         local pb = (100 + FieldListHUD.PLAN_BONUS) * rf - 100
                         r.nextYear = r.nextYear + self:getFruitLiters(fp.index, e.area, pb)
                         accN(r, e.area, pb)
@@ -4803,13 +4906,18 @@ function FieldListHUD:collectFruitTotals()
         local fts = g_fillTypeManager ~= nil and (g_fillTypeManager.fillTypes or g_fillTypeManager.indexToFillType) or {}
         for fti, ftl in pairs(fts) do
             local name = ftl.name and string.upper(ftl.name) or nil
-            if name ~= nil and string.find(name, "STRAW", 1, true) ~= nil and not string.find(name, "PELLET", 1, true)
+            if name ~= nil and FieldListHUD.isStrawFillName(name)
                 and strawMap[name] == nil and ((stock[ftl.index or fti] or 0) > 0 or (inp.fill[name] or 0) > 0) then
                 strawMap[name] = { now = 0, nextYear = 0, in2 = 0, fields = {}, stockOnly = true }
             end
         end
         self.strawLogged = true
     end)
+    for fill, l in pairs(strawDemand) do
+        if l > 0 and strawMap[fill] == nil then
+            strawMap[fill] = { now = 0, nextYear = 0, in2 = 0, fields = {}, stockOnly = true }
+        end
+    end
     local strawNames = {}
     for fill in pairs(strawMap) do table.insert(strawNames, fill) end
     table.sort(strawNames, function(x, y)
@@ -4820,11 +4928,77 @@ function FieldListHUD:collectFruitTotals()
         local r = strawMap[fill]
         if r.now > 0 or r.nextYear > 0 or r.in2 > 0 or r.stockOnly then
             local ftl = g_fillTypeManager ~= nil and g_fillTypeManager:getFillTypeByName(fill) or nil
+            local sumL, sumA = 0, 0
+            for _, f in ipairs(r.fields) do sumL = sumL + (f.liters or 0); sumA = sumA + (f.area or 0) end
+            local strawPerHa = sumA > 0 and sumL / sumA or 0
             table.insert(list, { name = fill, title = (fill == "STRAW" and T("straw")) or (ftl ~= nil and ftl.title) or fill,
-                isStraw = true, strawFill = fill, now = r.now, nextYear = r.nextYear, in2 = r.in2, fields = r.fields })
+                isStraw = true, strawFill = fill, now = r.now, nextYear = r.nextYear, in2 = r.in2, fields = r.fields,
+                demand = strawDemand[fill] or 0, strawPerHa = strawPerHa })
         end
     end
+    -- Silage / Häckselgut (Futterpflanzen): Mais als Häckselgut, Bedarf der Produktionen, Lager inkl. Fahrsilos
+    pcall(function()
+        local mft = g_fruitTypeManager:getFruitTypeByName("MAIZE")
+        local f = mft ~= nil and FieldListHUD.getChaffFactor(mft.index) or nil
+        local need = math.max(0, (silageInfo.need or 0) - (silageInfo.out or 0))
+        local ftl = g_fillTypeManager:getFillTypeByName("SILAGE")
+        local probe = { isSilage = true, name = "SILAGE" }
+        local stockL = self:getRowStock(probe) or 0
+        if need <= 0 and stockL <= 0 and silSlot.now + silSlot.planned + silSlot.nextYear + silSlot.in2 <= 0 then return end
+        local row = { name = "SILAGE", isSilage = true, title = T("silage_row"),
+            iconFilename = ftl ~= nil and ftl.hudOverlayFilename or nil,
+            now = 0, planned = 0, nextYear = 0, in2 = 0, demand = need, fields = {} }
+        if f ~= nil then
+            row.now = silSlot.now * f
+            row.planned = silSlot.planned * f
+            row.nextYear = silSlot.nextYear * f
+            row.in2 = silSlot.in2 * f
+            row.silageBase = ((mft ~= nil and mft.literPerSqm) or 0) * f * 10000
+            row.areaW, row.pctW, row.areaN, row.pctN, row.areaI, row.pctI = silSlot.areaW, silSlot.pctW, silSlot.areaN, silSlot.pctN, silSlot.areaI, silSlot.pctI
+            for _, fd in ipairs(silSlot.fields or {}) do
+                local c = {}
+                for k, v in pairs(fd) do c[k] = v end
+                if c.liters ~= nil then c.liters = c.liters * f end
+                table.insert(row.fields, c)
+            end
+        end
+        table.insert(list, row)
+    end)
     return list
+end
+
+-- Umrechnung Frucht -> Häckselgut (Feldhäcksler) aus den Spieldaten; nur Mais. Rückfallwert 7,8
+function FieldListHUD.getChaffFactor(fruitIndex)
+    local ft = fruitIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex) or nil
+    if ft == nil or string.upper(ft.name or "") ~= "MAIZE" then return nil end
+    local f = nil
+    pcall(function()
+        local conv = g_fruitTypeManager.nameToConverter ~= nil and g_fruitTypeManager.nameToConverter["FORAGEHARVESTER"] or nil
+        local d = conv ~= nil and conv[fruitIndex] or nil
+        if d ~= nil then f = d.conversionFactor or d.factor end
+    end)
+    return (type(f) == "number" and f > 0) and f or 7.8
+end
+
+-- Füllstand aller eigenen Fahrsilos (Häckselgut oder Silage; gärendes Häckselgut zählt als Silage)
+function FieldListHUD:getBunkerSiloLevel()
+    if self.bunkerCache ~= nil and g_time ~= nil and (g_time - (self.bunkerTime or 0)) < 1000 then
+        return self.bunkerCache
+    end
+    local sum = 0
+    pcall(function()
+        local m = g_currentMission
+        local farmId = m:getFarmId()
+        for _, pl in pairs(m.placeableSystem ~= nil and m.placeableSystem.placeables or {}) do
+            local spec = pl.spec_bunkerSilo
+            local bs = spec ~= nil and spec.bunkerSilo or nil
+            if bs ~= nil and (pl.getOwnerFarmId == nil or pl:getOwnerFarmId() == farmId) and type(bs.fillLevel) == "number" then
+                sum = sum + bs.fillLevel
+            end
+        end
+    end)
+    self.bunkerCache, self.bunkerTime = sum, g_time
+    return sum
 end
 
 function FieldListHUD:getStrawEntry(item)
@@ -4847,6 +5021,9 @@ function FieldListHUD:getFruitRowEntry(item)
     end
     if item.isStraw then
         return self:getStrawEntry(item)
+    end
+    if item.isSilage then
+        return { fruitTitle = item.title, iconFilename = item.iconFilename }
     end
     if item.isWindrow then
         return { fruitTitle = item.title, iconFilename = item.iconFilename }
@@ -5108,7 +5285,9 @@ end
 -- Eingangsbestand einer Zeile der Seite 3 in Litern
 function FieldListHUD:getRowInput(item)
     local inp = self:getInputStock()
-    if item.isStraw then
+    if item.isSilage then
+        return (inp.fill["SILAGE"] or 0) + (inp.fill["CHAFF"] or 0)
+    elseif item.isStraw then
         return inp.fill[item.strawFill or "STRAW"] or 0
     elseif item.isWindrow then
         return inp.fill[item.windrow] or 0
@@ -5121,6 +5300,12 @@ end
 -- Lagerbestand einer Zeile der Seite 3 in Litern (nil, wenn die Ware nicht zugeordnet werden kann)
 function FieldListHUD:getRowStock(item)
     local idx = nil
+    if item.isSilage then
+        local st = self:getStock()
+        local si = g_fillTypeManager:getFillTypeIndexByName("SILAGE")
+        local ci = g_fillTypeManager:getFillTypeIndexByName("CHAFF")
+        return (si ~= nil and st[si] or 0) + (ci ~= nil and st[ci] or 0) + self:getBunkerSiloLevel()
+    end
     if item.isStraw then
         idx = g_fillTypeManager:getFillTypeIndexByName(item.strawFill or "STRAW")
     elseif item.isWindrow then
@@ -5162,7 +5347,7 @@ function FieldListHUD:getStockShortages(item)
         (item.in2 or 0) * cutsF,
     }
     -- Was schon in den Produktionen eingelagert ist, ist bereits geliefert: wird einmalig vom Bedarf des ersten Jahres abgezogen
-    local inp = (not item.isAnimal and not item.isStraw) and (self:getRowInput(item) or 0) or 0
+    local inp = (not item.isAnimal) and (self:getRowInput(item) or 0) or 0
     local dems = { math.max(0, dem - inp), dem, dem }
     local out, s = {}, stock
     out.rest = {}
@@ -5195,7 +5380,7 @@ function FieldListHUD:buildPage3List()
     local crops = self:collectFruitTotals()
     local plain, forage = {}, {}
     for _, r in ipairs(crops) do
-        if r.name ~= "FIELDGRASS" and (r.multiCut or FieldListHUD.MULTI_CUT[r.name]) then
+        if r.isSilage or (r.name ~= "FIELDGRASS" and (r.multiCut or FieldListHUD.MULTI_CUT[r.name])) then
             table.insert(forage, r)
         else
             table.insert(plain, r)
@@ -5268,7 +5453,9 @@ function FieldListHUD:getItemSources(item)
     end
     local function matches(fti)
         local fname = g_fillTypeManager:getFillTypeNameByIndex(fti)
-        if item.isStraw then
+        if item.isSilage then
+            return fname == "SILAGE" or fname == "CHAFF"
+        elseif item.isStraw then
             return fname == (item.strawFill or "STRAW")
         elseif item.isAnimal then
             return fname == item.name
@@ -5332,6 +5519,25 @@ function FieldListHUD:getItemSources(item)
             elseif isOut then role = T("pop_output") end
             table.insert(out, { name = ppName, role = role, level = level, demand = demand, isInput = isIn and not isOut })
         end
+    end
+    -- Fahrsilos (Silage/Häckselgut, auch während der Gärung)
+    if item.isSilage then
+        pcall(function()
+            local farmId = mission:getFarmId()
+            for _, pl in pairs(mission.placeableSystem ~= nil and mission.placeableSystem.placeables or {}) do
+                local sp = pl.spec_bunkerSilo
+                local bs = sp ~= nil and sp.bunkerSilo or nil
+                if bs ~= nil and (pl.getOwnerFarmId == nil or pl:getOwnerFarmId() == farmId)
+                    and type(bs.fillLevel) == "number" and bs.fillLevel > 0 then
+                    local nm = tostring(pl.getName ~= nil and pl:getName() or "Fahrsilo")
+                    local pct = tonumber(bs.fermentingPercent) or 0
+                    if bs.state == 1 and pct > 0 and pct < 1 then
+                        nm = string.format("%s (%s %d%%)", nm, T("silo_ferment"), math.floor(pct * 100 + 0.5))
+                    end
+                    table.insert(out, { name = nm, role = T("pop_store"), level = bs.fillLevel, demand = 0, isInput = false })
+                end
+            end
+        end)
     end
     table.sort(out, function(a, b) return a.level > b.level end)
     return out
@@ -5708,7 +5914,7 @@ function FieldListHUD:drawFruitPage(L)
         end
         local stock = self:getRowStock(item)
         -- Startbestand des Jahres im Reiter: dieses Jahr der echte Bestand, später der Restbestand des Vorjahres
-        if stock ~= nil and self.p3Mode ~= nil and self.p3Mode ~= "this" and not item.isAnimal and not item.isStraw then
+        if stock ~= nil and self.p3Mode ~= nil and self.p3Mode ~= "this" and not item.isAnimal then
             local shs0 = self:getStockShortages(item)
             stock = shs0.rest[(self.p3Mode == "in2") and 2 or 1] or 0
         end
@@ -5718,7 +5924,7 @@ function FieldListHUD:drawFruitPage(L)
         setTextColor(unpack(inp > 0 and self.colorTitle or self.colorSub))
         renderText(cols[7].x + 0.008, ry + rowH / 2, 0.013, fmtLiters(inp))
         -- Restbestand: voraussichtlicher Lagerbestand am Ende des Jahres des gewählten Reiters (Lager + Ertrag - Bedarf)
-        if not item.isAnimal and not item.isStraw and stock ~= nil then
+        if not item.isAnimal and stock ~= nil then
             local shs = self:getStockShortages(item)
             local rest = shs.rest[(self.p3Mode == "in2") and 3 or ((self.p3Mode == "next") and 2 or 1)] or 0
             setTextColor(unpack(rest > 0 and self.colorTitle or self.colorSub))
@@ -5730,7 +5936,7 @@ function FieldListHUD:drawFruitPage(L)
         -- Fehlmenge = Jahresbedarf minus Ertrag der Felder (steht + geplant aus N+1), ohne Lager.
         -- Nur Feldfrüchte; Schnittfrüchte (pro Schnitt) und Tiere werden hier nicht gerechnet.
         local short, shortNoPlan = 0, 0
-        if not item.isAnimal and not item.isStraw and (not isCut or item.cuts ~= nil) and dem > 0 then
+        if not item.isAnimal and (not isCut or item.cuts ~= nil) and dem > 0 then
             short = math.max(0, dem - yearVal)
             shortNoPlan = nextMode and short or math.max(0, dem - (item.now or 0) * cutsF)
         end
@@ -5762,7 +5968,9 @@ function FieldListHUD:drawFruitPage(L)
                     avgPct = (item.areaN ~= nil and item.areaN > 0) and (item.pctN / item.areaN) or 100
                 end
             end
+            if item.isSilage then perHa = item.silageBase or 0 end
             perHa = perHa * (1 + avgPct / 100) * cutsF
+            if item.isStraw then perHa = item.strawPerHa or 0 end
             if shortStock <= 0.5 then
                 setTextColor(unpack(self.colorSub))
                 renderText(cols[10].x + 0.008, ry + rowH / 2, 0.013, "-")
@@ -6953,6 +7161,12 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
                 end
                 return true
             end
+            if inRect(hr.curSilage, posX, posY) and self.selectedId ~= nil then
+                local rcS = self:getRecord(self.selectedId)
+                rcS.curSilage = not rcS.curSilage
+                self.p3Dirty = true
+                return true
+            end
             if inRect(hr.acceptOne, posX, posY) and self.selectedId ~= nil then
                 local rcA = self:getRecord(self.selectedId)
                 if rcA.autoNext and rcA.next ~= nil then rcA.autoNext = false end
@@ -6961,6 +7175,7 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
             if inRect(hr.clearNext, posX, posY) and self.selectedId ~= nil then
                 local rc = self:getRecord(self.selectedId)
                 rc.next = nil
+                rc.silage = nil
                 rc.autoNext = false
                 rc.autoOff = true -- wie "keine Auswahl": Automatik für dieses Feld aus
                 return true
@@ -7259,14 +7474,29 @@ function FieldListHUD:planAllNext()
             local r0 = self.store[e.id]
             if r0 ~= nil and r0.autoNext and r0.next ~= nil then
                 r0.next = nil
+                r0.silage = nil
                 r0.autoNext = false
             end
         end
         local list = self:buildPage3List()
         -- Fehlmengen je Horizont: [1] = Ernte im nächsten Jahr, [2] = Ernte in 2 Jahren
         local shortH, shortWH = { {}, {} }, { {}, {} }
+        -- Stroh (auch Hülsenfrucht-Stroh): Fehlmenge je Strohsorte, gedeckt von den Früchten, die diese Sorte liefern
+        local shortS = { {}, {} }
         for _, it in ipairs(list) do
-            if it.name ~= nil and not it.isAnimal and not it.isStraw and not it.isWindrow and not it.isHeader
+            if it.isStraw and it.strawFill ~= nil and (it.demand or 0) > 0 then
+                local shs = self:getStockShortages(it)
+                shortS[1][it.strawFill] = shs[2]
+                shortS[2][it.strawFill] = shs[3]
+            elseif it.isSilage and (it.demand or 0) > 0 then
+                -- Silage/Häckselgut: Fehlmenge wird vom Mais gedeckt (Schlüssel "MAIZE_CHAFF")
+                local shs = self:getStockShortages(it)
+                shortS[1]["MAIZE_CHAFF"] = shs[2]
+                shortS[2]["MAIZE_CHAFF"] = shs[3]
+            end
+        end
+        for _, it in ipairs(list) do
+            if it.name ~= nil and not it.isAnimal and not it.isStraw and not it.isSilage and not it.isWindrow and not it.isHeader
                 and not it.multiCut and not FieldListHUD.MULTI_CUT[it.name] then
                 -- Fehlmenge nach Verrechnung mit dem Lager (kumulativ über die Jahre)
                 local shs = self:getStockShortages(it)
@@ -7318,7 +7548,7 @@ function FieldListHUD:planAllNext()
                 -- Felder ohne bekannte Historie gelten als Brache/Neuanfang: dort reicht "Neutral"
                 local noHist = rec.cur == nil and #(rec.hist or {}) == 0
                 local minPts = (noHist or pass == 2) and 0 or 1
-                local best, bestPts, bestShort, bestOff = nil, -9, 0, 1
+                local best, bestPts, bestShort, bestOff, bestSil = nil, -9, 0, 1, false
                 for _, o in ipairs(opts) do
                     local nm = o.name
                     -- Erntejahr dieser Frucht auf diesem Feld (Simulation): 1 = nächstes Jahr, 2 = in 2 Jahren
@@ -7334,7 +7564,13 @@ function FieldListHUD:planAllNext()
                     local kk = ALIAS[nm or ""] or nm or ""
                     local hz = (off == 2) and 2 or 1
                     local short, shortW = shortH[hz], shortWH[hz]
-                    local eff = math.max(short[kk] or 0, shortW[kk] or 0)
+                    local sFill = (nm ~= nil and o.index ~= nil) and self:getFruitStrawFill(o.index) or nil
+                    local chaffF = (nm ~= nil and o.index ~= nil and o.silage == true) and FieldListHUD.getChaffFactor(o.index) or nil
+                    local shS = sFill ~= nil and (shortS[hz][sFill] or 0) or 0
+                    if chaffF ~= nil then shS = math.max(shS, shortS[hz]["MAIZE_CHAFF"] or 0) end
+                    if o.silage == false then shS = sFill ~= nil and (shortS[hz][sFill] or 0) or 0 end
+                    local eff = math.max(short[kk] or 0, shortW[kk] or 0, shS)
+                    if o.silage == true then eff = shortS[hz]["MAIZE_CHAFF"] or 0 end
                     local pbE = (100 + FieldListHUD.PLAN_BONUS) * (nm ~= nil and self:getRotationFactor(rec, nm) or 1) - 100
                     -- Passt das Feld zur Restmenge? Der Rest-Bedarf muss mindestens halb (Runde 2: ein Fünftel) so groß sein wie der Feldertrag
                     local fits = false
@@ -7344,6 +7580,14 @@ function FieldListHUD:planAllNext()
                             local yF = self:getFruitLiters(fto.index, e.area, pbE)
                             local yW = (fto.windrowLiterPerSqm or 0) * e.area * 10000 * (1 + pbE / 100)
                             local relY = ((shortW[kk] or 0) > (short[kk] or 0) and yW > 0) and yW or yF
+                            if shS > (short[kk] or 0) and shS > (shortW[kk] or 0) then
+                                local yS = self:getFruitStraw(fto.index, e.area)
+                                if chaffF ~= nil and (sFill == nil or (shortS[hz]["MAIZE_CHAFF"] or 0) >= (shortS[hz][sFill] or 0)) then
+                                    yS = yF * chaffF
+                                end
+                                if yS > 0 then relY = yS end
+                            end
+                            if o.silage == true and chaffF ~= nil then relY = yF * chaffF end
                             fits = eff >= ((pass == 2) and 0.2 or 0.5) * relY
                         end
                     end
@@ -7352,24 +7596,33 @@ function FieldListHUD:planAllNext()
                         if not r.blocked and r.points >= minPts then
                             if best == nil or r.points > bestPts
                                 or (r.points == bestPts and (off < bestOff or (off == bestOff and eff > bestShort))) then
-                                best, bestPts, bestShort, bestOff = nm, r.points, eff, off
+                                best, bestPts, bestShort, bestOff, bestSil = nm, r.points, eff, off, (o.silage == true)
                             end
                         end
                     end
                 end
                 if best ~= nil then
                     rec.next = best
+                    rec.silage = bestSil or nil
                     rec.autoNext = true
                     local ft = g_fruitTypeManager:getFruitTypeByName(best)
                     if ft ~= nil then
                         -- geschätzten Ertrag dieses Feldes abziehen, damit nicht alle Felder dieselbe Frucht bekommen
                         local pbB = (100 + FieldListHUD.PLAN_BONUS) * self:getRotationFactor(rec, best) - 100
                         local bk = ALIAS[best] or best
-                        if shortH[bestOff][bk] ~= nil then
+                        if shortH[bestOff][bk] ~= nil and not bestSil then
                             shortH[bestOff][bk] = shortH[bestOff][bk] - self:getFruitLiters(ft.index, e.area, pbB)
                         end
                         if shortWH[bestOff][bk] ~= nil then
                             shortWH[bestOff][bk] = shortWH[bestOff][bk] - (ft.windrowLiterPerSqm or 0) * e.area * 10000 * (1 + pbB / 100)
+                        end
+                        local bChaff = bestSil and FieldListHUD.getChaffFactor(ft.index) or nil
+                        if bChaff ~= nil and shortS[bestOff]["MAIZE_CHAFF"] ~= nil then
+                            shortS[bestOff]["MAIZE_CHAFF"] = shortS[bestOff]["MAIZE_CHAFF"] - self:getFruitLiters(ft.index, e.area, pbB) * bChaff
+                        end
+                        local bFill = self:getFruitStrawFill(ft.index)
+                        if bFill ~= nil and shortS[bestOff][bFill] ~= nil then
+                            shortS[bestOff][bFill] = shortS[bestOff][bFill] - self:getFruitStraw(ft.index, e.area)
                         end
                     end
                     planned = planned + 1
@@ -7398,7 +7651,9 @@ function FieldListHUD:planOneNext(id)
         if rec == nil or e == nil then return end
         -- bisherige Wahl dieses Feldes aus der Bedarfsrechnung nehmen
         local prevNext = rec.next
+        local prevSil = rec.silage == true
         rec.next, rec.autoNext = nil, false
+        rec.silage = nil
         -- Sperre nur, solange eine Dauerkultur wirklich noch auf dem Feld steht (nicht bei bearbeitetem, leerem Feld)
         local gCur = nil
         if rec.manual and rec.cur ~= nil then
@@ -7409,8 +7664,18 @@ function FieldListHUD:planOneNext(id)
         if gCur == "GR" or gCur == "FL" or gCur == "DS" then return end
         local list = self:buildPage3List()
         local shortH, shortWH = { {}, {} }, { {}, {} }
+        local shortS = { {}, {} }
         for _, it in ipairs(list) do
-            if it.name ~= nil then
+            if it.isStraw and it.strawFill ~= nil and (it.demand or 0) > 0 then
+                local shs = self:getStockShortages(it)
+                shortS[1][it.strawFill] = shs[2]
+                shortS[2][it.strawFill] = shs[3]
+            elseif it.isSilage and (it.demand or 0) > 0 then
+                local shs = self:getStockShortages(it)
+                shortS[1]["MAIZE_CHAFF"] = shs[2]
+                shortS[2]["MAIZE_CHAFF"] = shs[3]
+            end
+            if it.name ~= nil and not it.isSilage then
                 if it.isWindrow then
                     local shs = self:getStockShortages(it)
                     shortWH[1][it.name] = (shortWH[1][it.name] or 0) + shs[2]
@@ -7458,8 +7723,10 @@ function FieldListHUD:planOneNext(id)
                     local r = self:rateCandidate(rec, nm)
                     if not r.blocked then
                         local kk = ALIAS[nm] or nm
-                        local eff = math.max(shortH[off][kk] or 0, shortWH[off][kk] or 0)
-                        table.insert(ranked, { name = nm, pts = r.points, eff = eff })
+                        local sFill = self:getFruitStrawFill(o.index)
+                        local eff = math.max(shortH[off][kk] or 0, shortWH[off][kk] or 0, sFill ~= nil and (shortS[off][sFill] or 0) or 0)
+                        if o.silage == true then eff = shortS[off]["MAIZE_CHAFF"] or 0 end
+                        table.insert(ranked, { name = nm, pts = r.points, eff = eff, silage = (o.silage == true) })
                     end
                 end
             end
@@ -7468,21 +7735,23 @@ function FieldListHUD:planOneNext(id)
         table.sort(ranked, function(a, b)
             if a.pts ~= b.pts then return a.pts > b.pts end
             if a.eff ~= b.eff then return a.eff > b.eff end
-            return a.name < b.name
+            if a.name ~= b.name then return a.name < b.name end
+            return (a.silage and 1 or 0) < (b.silage and 1 or 0)
         end)
-        local best, bestPts = nil, nil
+        local best, bestPts, bestSilP = nil, nil, false
         if #ranked > 0 then
             local pick = 1
             for i, c in ipairs(ranked) do
-                if c.name == prevNext then
+                if c.name == prevNext and c.silage == prevSil then
                     pick = i % #ranked + 1
                     break
                 end
             end
-            best, bestPts = ranked[pick].name, ranked[pick].pts
+            best, bestPts, bestSilP = ranked[pick].name, ranked[pick].pts, ranked[pick].silage == true
         end
         if best ~= nil then
             rec.next, rec.autoNext = best, true
+            rec.silage = bestSilP or nil
             rec.autoOff = false
             result, resPts = best, bestPts
         end
@@ -7680,7 +7949,7 @@ function FieldListHUD.countHarvest(fruitIndex, realArea, wx, wz, hx, hz)
 end
 
 FieldListHUD.SER_STR  = { "next", "cur", "skip", "sowFruit", "post" }
-FieldListHUD.SER_BOOL = { "gap", "unused", "manual", "autoNext", "autoOff", "ccPending", "ccPlanned", "done", "skipEmpty" }
+FieldListHUD.SER_BOOL = { "gap", "unused", "manual", "autoNext", "autoOff", "ccPending", "ccPlanned", "done", "skipEmpty", "silage", "curSilage" }
 FieldListHUD.SER_NUM  = { "sowFactor", "sprayKey", "lastSpray", "lastGs", "ccGround" }
 
 function FieldListHUD.serializeRec(rec)

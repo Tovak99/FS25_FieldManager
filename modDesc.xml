@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <modDesc descVersion="90">
     <author>Tovak</author>
-    <version>1.1.4.0</version>
+    <version>1.1.4.1</version>
 
     <title>
         <en>Field Manager</en>
@@ -18,6 +18,7 @@ Features:
 - Crop calendar for each field with sowing and harvest months
 - Yield overview: expected harvest this year and next year compared to the demand of your productions, shortage in liters and hectares
 - Harvest overview: actually harvested amounts per crop and field with share, this year, last year and two years ago
+- Silage / chaff row with maize (grain or silage per field), bunker silos in stock, straw demand, planning covers shortages
 - Marks which fields are needed to cover your production demand
 - Postpone work: click a task on the work page to hide it until next month, click again to bring it back
 - Movable HUD window in the game: list of all fields with pending work, your current field highlighted, tractor symbol on fields with vehicles; move and resize it with the mouse (key Alt+F, rebindable)
@@ -34,6 +35,7 @@ Funktionen:
 - Anbaukalender je Feld mit Saat- und Erntemonaten
 - Ertragsübersicht: erwartete Ernte in diesem und im nächsten Jahr im Vergleich zum Bedarf deiner Produktionen, Fehlmenge in Litern und Hektar
 - Ernteübersicht: tatsächlich geerntete Mengen je Frucht und Feld mit Anteil, dieses Jahr, letztes Jahr und vor zwei Jahren
+- Silage-/Häckselgut-Zeile mit Mais (Körner oder Silage je Feld), Fahrsilos im Lager, Strohbedarf, Planung deckt Fehlmengen
 - Markiert, welche Felder zur Deckung des Produktionsbedarfs gebraucht werden
 - Arbeiten verschieben: Klick auf eine Arbeit auf der Arbeiten-Seite blendet sie bis zum nächsten Monat aus, ein erneuter Klick holt sie zurück
 - Verschiebbares HUD-Fenster im Spiel: Liste aller Felder mit offenen Arbeiten, dein aktuelles Feld hervorgehoben, Traktorsymbol bei Fahrzeugen auf dem Feld; mit der Maus verschieben und in der Größe ändern (Taste Alt+F, änderbar)

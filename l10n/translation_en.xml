@@ -264,6 +264,12 @@
         <text name="fl_hv_sum" text="TOTAL"/>
         <text name="fl_hv_none" text="Nothing has been harvested in this period yet."/>
         <text name="fl_hv_hint" text="Game year %d. Counted since the mod was installed (estimate: harvested area x liters per m²)."/>
+        <text name="fl_silage_row" text="Silage / chaff"/>
+        <text name="fl_use_grain" text="grain"/>
+        <text name="fl_use_silage" text="silage"/>
+        <text name="fl_cur_use_grain" text="MAIZE: GRAIN"/>
+        <text name="fl_cur_use_silage" text="MAIZE: SILAGE"/>
+        <text name="fl_silo_ferment" text="fermenting"/>
         <text name="fl_tab_in2" text="IN 2 YEARS"/>
         <text name="fl_col_in2" text="YIELD IN 2 YEARS"/>
         <text name="fl_col_short" text="SHORTFALL"/>

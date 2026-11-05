@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.0** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.1** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -49,6 +49,9 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Weizen/Sommerweizen und Gerste/Sommergerste werden zusammen geführt
 - Lagerbestand wird über die Jahre fortgeschrieben: Spalte **Restbestand** je Jahr, Fehlmenge nach Abzug von Lager und Eingang aus laufender Produktion; Schwad-Früchte werden gleich behandelt
 - Die automatische Planung berücksichtigt Lager, Restbestand und geplante Ernte
+- **Stroh und Hülsenfrucht-Stroh** mit Bedarf der Produktionen, Restbestand und Fehlmenge; die Planung bevorzugt Früchte, die das fehlende Stroh liefern
+- **Silage / Häckselgut** (Futterpflanzen): Bedarf aktiver Produktionen (BGA, Komposter, Fermenter), Lager inklusive Fahrsilos (auch gärend), Ertrag aus Mais mit dem Häckselfaktor des Spiels
+- **Mais (Körner) oder Mais (Silage)** je Feld: in der Folgefrucht-Auswahl und per Schalter für den stehenden Mais; die automatische Planung deckt Silage-Fehlmengen mit Mais (Silage)
 
 <img width="1481" height="909" alt="image" src="https://github.com/user-attachments/assets/55ee4f4a-7514-4120-9061-c364def5dd55" />
 
@@ -108,6 +111,7 @@ Field Manager adds a page to the pause menu and an optional in-game HUD window.
 - **Crop rotation planning:** rating of next crops, automatic planning, production demand marker, footer with demand coverage and yield forecast per harvest year
 - **Yield planning:** this year, next year and in 2 years vs. production demand, shortage in liters and hectares, detail window with all fields
 - **Harvested amounts (page 5):** actual harvested liters per crop and field (this year, last year, 2 years ago), with share per field and yield per hectare
+- **Silage and straw:** straw and legume straw demand, a silage / chaff row with bunker silos in stock, maize can be planned as grain or silage per field
 - **Harvest calendar (page 6):** one row per fruit with its harvest period, seasons like the game calendar, dashed line for today
 - **Seasonal production (option):** plantations and field productions only run in season with a smooth ramp up and down; greenhouses run all year
 - **HUD window:** transparent, movable and resizable, list of fields with pending work, tractor symbol; mouse toggle with Alt+F (rebindable)

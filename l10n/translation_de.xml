@@ -236,7 +236,7 @@
         <text name="fl_no_fields_sel" text="Keine Felder in dieser Auswahl"/>
         <text name="fl_straw" text="Stroh"/>
         <text name="fl_per_cut" text=" (pro Schnitt)"/>
-        <text name="fl_per_cut_n" text=" (pro Schnitt, %dx)"/>
+        <text name="fl_per_cut_n" text=" (%d Schnitte)"/>
         <text name="fl_sec_crops" text="FELDFRÜCHTE (PRO JAHR)"/>
         <text name="fl_sec_forage" text="FUTTERPFLANZEN (PRO JAHR)"/>
         <text name="fl_sec_animal" text="TIERERZEUGNISSE (PRO STUNDE)"/>
@@ -263,7 +263,7 @@
         <text name="fl_hv_perha" text="ERTRAG / HA"/>
         <text name="fl_hv_sum" text="SUMME"/>
         <text name="fl_hv_none" text="In diesem Zeitraum wurde noch nichts geerntet."/>
-        <text name="fl_hv_hint" text="Jahr %d im Spiel. Gezählt wird ab der Installation des Mods (Mähdrescher und Häcksler: tatsächliche Liter; Mäher: Näherung aus Fläche x Schwad je m²)."/>
+        <text name="fl_hv_hint" text="Jahr %d im Spiel. Gezählt wird ab der Installation des Mods (Mähdrescher und Häcksler: tatsächliche Liter; Mäher: Näherung aus Fläche x Schwad je m²). Ertrag / ha = Menge je geerntetem Hektar."/>
         <text name="fl_silage_row" text="Silage / Häckselgut"/>
         <text name="fl_use_grain" text="Körner"/>
         <text name="fl_use_silage" text="Silage"/>

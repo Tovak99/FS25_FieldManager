@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.3** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.4** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -44,7 +44,8 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 ### Seite 4: Ertragsplanung
 - Je Frucht, Futter und Stroh: Ertrag, Bedarf der Produktionen, Differenz, Lagerbestand, Eingang, Fehlmenge und benötigte Fläche
 - Reiter Dieses Jahr, Nächstes Jahr, In 2 Jahren (Erntejahr nach Saat- und Erntemonaten, Wintergetreide zählt zum nächsten Jahr)
-- Planung rechnet mit festem Bonus für geplante Felder, Mehrschnitt-Früchte mit Schnitten pro Jahr
+- Planung rechnet mit festem Bonus für geplante Felder; Mehrschnitt-Früchte zeigen die Jahresmenge (Gras mit seinen Schnitten, Ackergras, Kleegras und Luzerne mit 1 Schnitt)
+- Ackergras-Schwad (Dreschen) zählt zur Gras-Zeile, mit Praxisabschlag von 75 % auf den Sollwert
 - Detailfenster je Frucht mit Produktionen, Eingängen und allen beteiligten Feldern (Ernte, Fläche, Ertrag, Menge)
 - Weizen/Sommerweizen und Gerste/Sommergerste werden zusammen geführt
 - Lagerbestand wird über die Jahre fortgeschrieben: Spalte **Restbestand** je Jahr, Fehlmenge nach Abzug von Lager und Eingang aus laufender Produktion; Schwad-Früchte werden gleich behandelt
@@ -61,6 +62,8 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Schwad: die Menge, die Mäher und Drescher auf dem Boden ablegen. Gras-, Klee- und Luzerneschwad zählt unter Gras, Klee und Luzerne (auch das Schwad hinter dem Drescher bei Ackergras), andere Schwad-Waren wie Flachs- und Hanfschwad bekommen eine eigene Zeile, Stroh wird nicht gezählt
 - Ballenpressen, Ladewagen und Abkippen zählen nicht noch einmal
 - Reiter Dieses Jahr, Letztes Jahr, Vor 2 Jahren; links die Früchte mit Menge, rechts die Felder der gewählten Frucht mit Fläche, Menge, Anteil in % und Ertrag je Hektar plus Summenzeile
+- Ertrag je Hektar wird aus der tatsächlich geernteten Fläche berechnet; die Frucht und das Feld, die gerade geerntet werden, sind grün markiert
+- Mais: Körner und Häckselgut stehen in getrennten Zeilen
 - Gezählt wird erst ab der Installation des Mods; im Mehrspielerspiel zählt der Server, die Clients bekommen die Werte per Abgleich
 
 ### Seite 6: Erntekalender (saisonale Produktion)

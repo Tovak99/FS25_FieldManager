@@ -236,7 +236,7 @@
         <text name="fl_no_fields_sel" text="No fields in this selection"/>
         <text name="fl_straw" text="Straw"/>
         <text name="fl_per_cut" text=" (per cut)"/>
-        <text name="fl_per_cut_n" text=" (per cut, %dx)"/>
+        <text name="fl_per_cut_n" text=" (%d cuts)"/>
         <text name="fl_sec_crops" text="FIELD CROPS (PER YEAR)"/>
         <text name="fl_sec_forage" text="FORAGE CROPS (PER YEAR)"/>
         <text name="fl_sec_animal" text="ANIMAL PRODUCTS (PER HOUR)"/>
@@ -263,7 +263,7 @@
         <text name="fl_hv_perha" text="YIELD / HA"/>
         <text name="fl_hv_sum" text="TOTAL"/>
         <text name="fl_hv_none" text="Nothing has been harvested in this period yet."/>
-        <text name="fl_hv_hint" text="Game year %d. Counted since the mod was installed (combines and choppers: actual liters; mowers: estimate from area x windrow per m²)."/>
+        <text name="fl_hv_hint" text="Game year %d. Counted since the mod was installed (combines and choppers: actual liters; mowers: estimate from area x windrow per m²). Yield / ha = amount per harvested hectare."/>
         <text name="fl_silage_row" text="Silage / chaff"/>
         <text name="fl_use_grain" text="grain"/>
         <text name="fl_use_silage" text="silage"/>

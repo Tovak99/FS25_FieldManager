@@ -844,6 +844,20 @@ function FieldListHUD:sprayedThisMonth(id)
     return rec ~= nil and rec.sprayKey ~= nil and key ~= nil and rec.sprayKey == key
 end
 
+-- Zweite Düngung gesperrt? Gras: erst nach dem Monatswechsel. Alle anderen Früchte: erst, wenn die Frucht
+-- seit der Düngung mindestens eine Wachstumsstufe weitergewachsen ist (Stufe unbekannt: Monatsregel)
+function FieldListHUD:sprayBlockedAgain(entry)
+    local id = entry ~= nil and entry.id or nil
+    local rec = id ~= nil and self.store ~= nil and self.store[id] or nil
+    if rec == nil then return false end
+    local fname = string.upper(entry.fruitName or "")
+    if fname ~= "GRASS" and rec.sprayGs ~= nil and rec.sprayKey ~= nil then
+        -- Gedüngt auf leerem Feld oder frisch gesät (Stufe 0/1): erst ab Stufe 2 wieder
+        return entry.growthState == nil or entry.growthState <= math.max(rec.sprayGs, 1)
+    end
+    return self:sprayedThisMonth(id)
+end
+
 function FieldListHUD:trackField(entry)
     if entry.id == nil or entry.id == 0 or not self:isAuthority() then
         return
@@ -868,6 +882,9 @@ function FieldListHUD:trackField(entry)
     if entry.spray ~= nil then
         if rec.lastSpray ~= nil and entry.spray > rec.lastSpray then
             rec.sprayKey = self:getMonthKey()
+            rec.sprayGs = entry.growthState or 0 -- leeres Feld: 0
+        elseif rec.lastSpray ~= nil and entry.spray < rec.lastSpray then
+            rec.sprayGs = nil -- Düngung zurückgesetzt (Ernte/Neuaussaat)
         end
         rec.lastSpray = entry.spray
     end
@@ -1065,6 +1082,9 @@ function FieldListHUD:saveData(dir)
             if rec.sprayKey ~= nil then
                 setXMLInt(h, key .. "#sprayKey", rec.sprayKey)
             end
+            if rec.sprayGs ~= nil then
+                setXMLInt(h, key .. "#sprayGs", rec.sprayGs)
+            end
             if rec.post ~= nil and rec.post ~= "" then
                 setXMLString(h, key .. "#post", rec.post)
             end
@@ -1155,6 +1175,7 @@ function FieldListHUD:loadData(dir)
             rec.autoOff = getXMLBool(h, key .. "#autoOff") == true
             rec.sowFactor = getXMLFloat(h, key .. "#sowF")
             rec.sprayKey = getXMLInt(h, key .. "#sprayKey")
+            rec.sprayGs = getXMLInt(h, key .. "#sprayGs")
             do local pv = getXMLString(h, key .. "#post"); rec.post = (pv ~= nil and pv ~= "") and pv or nil end
             rec.sowFruit = val("sowFruit")
             rec.harv = FieldListHUD.parseHarv(val("harv"))
@@ -1351,7 +1372,9 @@ function FieldListHUD:getWorkItemsAll(entry)
     if mi ~= nil and mi.limeRequired and entry.lime ~= nil and entry.lime <= 0 and not limeBlocked then
         table.insert(items, { prio = 4, kind = "lime", cell = string.format("%d/%d", entry.lime or 0, (fm ~= nil and fm.limeLevelMaxValue) or 3), text = T("work_lime"), short = T("work_lime_short") })
     end
-    if entry.spray ~= nil and entry.spray < sprayMax and not sprayBlocked and not self:sprayedThisMonth(entry.id) then
+    -- Leeres Feld: nur die erste Düngung (0 -> 1) ist möglich; die zweite braucht eine Frucht, die eine Stufe gewachsen ist
+    local emptySecond = not growing and (entry.spray or 0) >= 1
+    if entry.spray ~= nil and entry.spray < sprayMax and not sprayBlocked and not emptySecond and not self:sprayBlockedAgain(entry) then
         table.insert(items, { prio = 5, kind = "spray", cell = string.format("%d/%d", entry.spray or 0, sprayMax), text = T("work_spray"), short = T("work_spray_short") })
     end
     if entry.weed ~= nil and entry.weed > 0 then
@@ -3951,7 +3974,7 @@ function FieldListHUD:getProdMap()
         local dem = item.demand or 0
         if dem > 0 and not item.isStraw and not item.isAnimal and not item.isSilage
             and item.fields ~= nil and (not isCut or item.cuts ~= nil) then
-            local cutsF = (isCut and item.cuts) or 1
+            local cutsF = (isCut and not item.yearly and item.cuts) or 1
             local totals, per = {}, {}
             for _, mode in ipairs({ "this", "next", "in2" }) do
                 local entries, total = {}, 0
@@ -4020,7 +4043,7 @@ function FieldListHUD:getForecastTip(fieldId, fruitName)
     for _, item in ipairs(list or {}) do
         if item.name == fruitName and item.fields ~= nil and not item.isStraw and not item.isAnimal then
             title = item.title
-            local cuts = ((item.multiCut or FieldListHUD.MULTI_CUT[item.name]) and item.cuts) or 1
+            local cuts = ((item.multiCut or FieldListHUD.MULTI_CUT[item.name]) and not item.yearly and item.cuts) or 1
             for _, mode in ipairs({ "this", "next", "in2" }) do
                 local sum, mine = 0, 0
                 for _, f in ipairs(item.fields) do
@@ -4629,6 +4652,12 @@ function FieldListHUD:getCutsPerYear(fruitIndex)
     end
     local result = false
     local ft = g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    -- Ackergras, Kleegras und Luzerne werden meist nach dem ersten Jahr umgebrochen: nur 1 Schnitt rechnen
+    local ftn = ft ~= nil and string.upper(ft.name or "") or ""
+    if ftn == "FIELDGRASS" or ftn == "CLOVER" or ftn == "ALFALFA" then
+        self.cutsCache[fruitIndex] = 1
+        return 1
+    end
     local ok, err = pcall(function()
         local data = ft ~= nil and ft.growthDataSeasonal or nil
         local periods = type(data) == "table" and data.periods or nil
@@ -4770,6 +4799,35 @@ function FieldListHUD:collectFruitTotals()
             table.insert(r.fields, { id = ctx.e.id, fruit = ctx.fruit, area = areaHa, pct = nil, liters = l, kind = kind, mode = mode })
         end
     end
+    -- Ackergras wird gedroschen (Samen in der eigenen Zeile); der Schwad hinter dem Drescher zählt als Gras.
+    -- Menge: Schwad-Liter je m2 aus den Spieldaten x Ertragsfaktor x Praxisabschlag (gemessen ca. 75 %).
+    -- Die Gras-Zeile steht "pro Schnitt" und wird später mit der Schnittzahl multipliziert, der Schwad fällt aber
+    -- nur einmal an: darum hier durch die Schnittzahl teilen.
+    local function ackerSchwad(fruitName, fruitIdx, areaHa, pct, mode)
+        if fruitName ~= "FIELDGRASS" then return end
+        local gt = g_fruitTypeManager:getFruitTypeByName("GRASS")
+        local ft = fruitIdx ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fruitIdx) or nil
+        if gt == nil or ft == nil then return end
+        local perSqm = ft.windrowLiterPerSqm or 0
+        if perSqm <= 0 then perSqm = 3 end
+        local cuts = self:getCutsPerYear(gt.index) or 1
+        if cuts < 1 then cuts = 1 end
+        local l = perSqm * areaHa * 10000 * (1 + pct / 100) * FieldListHUD.SCHWAD_PRACTICE / cuts
+        local r = slot("GRASS")
+        if mode == "now" then
+            r.now = r.now + l
+            acc(r, areaHa, pct)
+        elseif mode == "planned" then
+            r.planned = r.planned + l
+            acc(r, areaHa, pct)
+        elseif mode == "in2" then
+            r.in2 = r.in2 + l
+            accI(r, areaHa, pct)
+        else
+            r.nextYear = r.nextYear + l
+            accN(r, areaHa, pct)
+        end
+    end
     for _, e in ipairs(self.fields or {}) do
         local rec = self:getRecord(e.id)
         ctx.e = e
@@ -4807,6 +4865,7 @@ function FieldListHUD:collectFruitTotals()
                 if curOff == 0 then
                     S(curName, rec.curSilage).now = S(curName, rec.curSilage).now + self:getFruitLiters(curIndex, e.area, pcur)
                     acc(S(curName, rec.curSilage), e.area, pcur)
+                    ackerSchwad(curName, curIndex, e.area, pcur, "now")
                     for _, wr in ipairs(wrByFruit[curName] or {}) do
                         wr.now = wr.now + windrowLiters(curIndex, e.area, pcur)
                         acc(wr, e.area, pcur)
@@ -4818,6 +4877,7 @@ function FieldListHUD:collectFruitTotals()
                         local pbN = FieldListHUD.PLAN_BONUS
                         rN.nextYear = rN.nextYear + self:getFruitLiters(curIndex, e.area, pbN)
                         accN(rN, e.area, pbN)
+                        ackerSchwad(curName, curIndex, e.area, pbN, "next")
                         for _, wr in ipairs(wrByFruit[curName] or {}) do
                             wr.nextYear = wr.nextYear + windrowLiters(curIndex, e.area, pbN)
                             accN(wr, e.area, pbN)
@@ -4829,6 +4889,7 @@ function FieldListHUD:collectFruitTotals()
                     local pb = (100 + FieldListHUD.PLAN_BONUS) * rfCur - 100
                     r.nextYear = r.nextYear + self:getFruitLiters(curIndex, e.area, pb)
                     accN(r, e.area, pb)
+                    ackerSchwad(curName, curIndex, e.area, pb, "next")
                     for _, wr in ipairs(wrByFruit[curName] or {}) do
                         wr.nextYear = wr.nextYear + windrowLiters(curIndex, e.area, pb)
                         accN(wr, e.area, pb)
@@ -4858,6 +4919,7 @@ function FieldListHUD:collectFruitTotals()
                         local rp = S(nName, rec.silage)
                         rp.planned = rp.planned + self:getFruitLiters(fp.index, e.area, pe)
                         acc(rp, e.area, pe)
+                        ackerSchwad(nName, fp.index, e.area, pe, "planned")
                         for _, wr in ipairs(wrByFruit[nName] or {}) do
                             wr.planned = wr.planned + windrowLiters(fp.index, e.area, pe)
                             acc(wr, e.area, pe)
@@ -4870,6 +4932,7 @@ function FieldListHUD:collectFruitTotals()
                         local pb = (100 + FieldListHUD.PLAN_BONUS) * rf - 100
                         r.in2 = r.in2 + self:getFruitLiters(fp.index, e.area, pb)
                         accI(r, e.area, pb)
+                        ackerSchwad(nName, fp.index, e.area, pb, "in2")
                         for _, wr in ipairs(wrByFruit[nName] or {}) do
                             wr.in2 = wr.in2 + windrowLiters(fp.index, e.area, pb)
                             accI(wr, e.area, pb)
@@ -4881,6 +4944,7 @@ function FieldListHUD:collectFruitTotals()
                         local pb = (100 + FieldListHUD.PLAN_BONUS) * rf - 100
                         r.nextYear = r.nextYear + self:getFruitLiters(fp.index, e.area, pb)
                         accN(r, e.area, pb)
+                        ackerSchwad(nName, fp.index, e.area, pb, "next")
                         for _, wr in ipairs(wrByFruit[nName] or {}) do
                             wr.nextYear = wr.nextYear + windrowLiters(fp.index, e.area, pb)
                             accN(wr, e.area, pb)
@@ -4904,6 +4968,15 @@ function FieldListHUD:collectFruitTotals()
         if r.multiCut or FieldListHUD.MULTI_CUT[r.name] then
             local ftc = g_fruitTypeManager:getFruitTypeByName(r.name)
             r.cuts = ftc ~= nil and self:getCutsPerYear(ftc.index) or nil
+            -- Alle Mengen der Zeile gelten fürs ganze Jahr (Schnitte x Ertrag je Schnitt)
+            if r.cuts ~= nil and r.cuts > 1 then
+                r.now, r.planned = r.now * r.cuts, r.planned * r.cuts
+                r.nextYear, r.in2 = r.nextYear * r.cuts, r.in2 * r.cuts
+                for _, fd in ipairs(r.fields or {}) do
+                    if fd.liters ~= nil then fd.liters = fd.liters * r.cuts end
+                end
+            end
+            if r.cuts ~= nil then r.yearly = true end
         end
         table.insert(list, r)
     end
@@ -5026,6 +5099,7 @@ FieldListHUD.MAX_HIST = 6 -- Vorfrüchte N-1 bis N-6
 FieldListHUD.PLAN_BONUS_DEFAULT = 15 + 15 + 45 + 20
 FieldListHUD.PLAN_BONUS = FieldListHUD.PLAN_BONUS_DEFAULT
 FieldListHUD.MULTI_CUT = { GRASS = true, FIELDGRASS = true, ALFALFA = true, CLOVER = true }
+FieldListHUD.SCHWAD_PRACTICE = 0.75 -- Ackergras-Schwad: gemessener Anteil am Sollwert der Spieldaten
 
 -- Zeileneintrag der Fruchtübersicht; mehrschnittige Früchte werden als "pro Schnitt" gekennzeichnet
 function FieldListHUD:getFruitRowEntry(item)
@@ -5045,7 +5119,10 @@ function FieldListHUD:getFruitRowEntry(item)
     if e ~= nil and (item.multiCut or FieldListHUD.MULTI_CUT[item.name]) then
         local copy = {}
         for k, v in pairs(e) do copy[k] = v end
-        copy.fruitTitle = e.fruitTitle .. (item.cuts ~= nil and string.format(T("per_cut_n"), item.cuts) or T("per_cut"))
+        local suffix = ""
+        if item.cuts == nil then suffix = T("per_cut")
+        elseif item.cuts > 1 then suffix = string.format(T("per_cut_n"), item.cuts) end
+        copy.fruitTitle = e.fruitTitle .. suffix
         return copy
     end
     return e
@@ -5354,7 +5431,7 @@ function FieldListHUD:getStockShortages(item)
     local stock = self:getRowStock(item) or 0
     local dem = item.demand or 0
     local isCut = item.multiCut or FieldListHUD.MULTI_CUT[item.name]
-    local cutsF = (isCut and item.cuts) or 1
+    local cutsF = (isCut and not item.yearly and item.cuts) or 1
     local ys = {
         ((item.now or 0) + ((not item.isAnimal and item.planned) or 0)) * cutsF,
         (item.nextYear or 0) * cutsF,
@@ -5884,7 +5961,7 @@ function FieldListHUD:drawFruitPage(L)
         -- Schnittfrüchte: Werte oben gelten pro Schnitt, für Differenz und Fehlmenge zählt das Jahr (Schnitte x Ertrag)
         local isCut = item.multiCut or FieldListHUD.MULTI_CUT[item.name]
         local cutsF = (isCut and item.cuts) or 1
-        local yearVal = yieldVal * cutsF
+        local yearVal = item.yearly and yieldVal or yieldVal * cutsF
         if not showThis then
             -- Spalte "dieses Jahr" ist im Reiter Planung ausgeblendet
         elseif planned > 0 then
@@ -5952,7 +6029,7 @@ function FieldListHUD:drawFruitPage(L)
         local short, shortNoPlan = 0, 0
         if not item.isAnimal and (not isCut or item.cuts ~= nil) and dem > 0 then
             short = math.max(0, dem - yearVal)
-            shortNoPlan = nextMode and short or math.max(0, dem - (item.now or 0) * cutsF)
+            shortNoPlan = nextMode and short or math.max(0, dem - (item.yearly and (item.now or 0) or (item.now or 0) * cutsF))
         end
         setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
         setTextAlignment(RenderText.ALIGN_LEFT)
@@ -6474,6 +6551,11 @@ function FieldListHUD:getHarvestData(tab)
     local own = {}
     for _, e in ipairs(self.fields or {}) do own[e.id] = e end
     local byFruit, list = {}, {}
+    local now = g_currentMission ~= nil and g_currentMission.time or 0
+    local function isAct(id, name)
+        local a = FieldListHUD.activity ~= nil and FieldListHUD.activity[id] or nil
+        return tab == 1 and a ~= nil and a[name] ~= nil and now - a[name] < 4000
+    end
     for id, rec in pairs(self.store or {}) do
         local e = own[id]
         local t = e ~= nil and rec.harv ~= nil and rec.harv[year] or nil
@@ -6481,16 +6563,25 @@ function FieldListHUD:getHarvestData(tab)
             -- alte Schlüssel "WR_GRASS_WINDROW" usw. (frühere Testversion) gehören zur Zeile Gras/Klee/Luzerne
             local merged = {}
             for name, l in pairs(t) do
-                local base = string.match(name, "^WR_(.+)_WINDROW$")
-                if base ~= nil and FieldListHUD.WINDROW_FRUITS ~= nil and FieldListHUD.WINDROW_FRUITS[base] then name = base end
-                merged[name] = (merged[name] or 0) + l
+                local pre = string.sub(name, 1, 1) == "~" and "~" or ""
+                local plain = pre == "~" and string.sub(name, 2) or name
+                local base = string.match(plain, "^WR_(.+)_WINDROW$")
+                if base ~= nil and FieldListHUD.WINDROW_FRUITS ~= nil and FieldListHUD.WINDROW_FRUITS[base] then plain = base end
+                merged[pre .. plain] = (merged[pre .. plain] or 0) + l
             end
             for name, l in pairs(merged) do
-                if l > 0 then
+                if string.sub(name, 1, 1) ~= "~" and l > 0 then
                     local f = byFruit[name]
                     if f == nil then
-                        local info = string.sub(name, 1, 3) ~= "WR_" and self:getEntryByFruitName(name) or nil
+                        local baseName, outName = string.match(name, "^(.-)@(.+)$")
+                        local info = string.sub(name, 1, 3) ~= "WR_" and self:getEntryByFruitName(baseName or name) or nil
                         local title, icon = info ~= nil and info.fruitTitle or name, info ~= nil and info.iconFilename or nil
+                        if outName ~= nil then
+                            local oi = g_fillTypeManager:getFillTypeIndexByName(outName)
+                            local od = oi ~= nil and g_fillTypeManager:getFillTypeByIndex(oi) or nil
+                            title = string.format("%s (%s)", info ~= nil and info.fruitTitle or baseName, od ~= nil and od.title or outName)
+                            if info == nil and od ~= nil then icon = od.hudOverlayFilename end
+                        end
                         if string.sub(name, 1, 3) == "WR_" then
                             local fi = g_fillTypeManager:getFillTypeIndexByName(string.sub(name, 4))
                             local fd = fi ~= nil and g_fillTypeManager:getFillTypeByIndex(fi) or nil
@@ -6501,7 +6592,9 @@ function FieldListHUD:getHarvestData(tab)
                         list[#list + 1] = f
                     end
                     f.total = f.total + l
-                    f.fields[#f.fields + 1] = { id = id, area = e.area or 0, liters = l }
+                    local act = isAct(id, name)
+                    if act then f.active = true end
+                    f.fields[#f.fields + 1] = { id = id, area = e.area or 0, liters = l, ha = (merged["~" .. name] or 0) / 10000, active = act }
                 end
             end
         end
@@ -6607,11 +6700,11 @@ function FieldListHUD:drawHarvestPage(L)
         setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
         setTextAlignment(RenderText.ALIGN_LEFT)
         setTextBold(true)
-        setTextColor(unpack(self.colorTitle))
+        setTextColor(unpack(f.active and self.colorArea or self.colorTitle))
         renderText(x0 + 0.010 + iconW + 0.008, ry + rowH / 2, 0.013, f.title)
         setTextBold(false)
         setTextAlignment(RenderText.ALIGN_RIGHT)
-        setTextColor(unpack(active and self.colorArea or self.colorTitle))
+        setTextColor(unpack((active or f.active) and self.colorArea or self.colorTitle))
         renderText(x0 + lwr - 0.010, ry + rowH / 2, 0.013, fmtLiters(f.total))
         hv.rows[#hv.rows + 1] = { x = x0, y = ry, w = lwr, h = rowH, name = f.name }
     end
@@ -6667,13 +6760,13 @@ function FieldListHUD:drawHarvestPage(L)
             if fd == nil then break end
             local ry = top - headH - i * rowH
             if i % 2 == 0 then self:drawRect(rx + 0.002, ry, rw - 0.004, rowH, { 1, 1, 1, 0.04 }) end
-            setTextColor(unpack(self.colorTitle))
+            setTextColor(unpack(fd.active and self.colorArea or self.colorTitle))
             local vals = {
                 string.format("%s %d", T("hv_field_s"), fd.id),
                 string.format("%.2f ha", fd.area),
                 fmtLiters(fd.liters),
                 string.format("%.1f %%", sel.total > 0 and fd.liters / sel.total * 100 or 0),
-                fd.area > 0 and fmtLiters(fd.liters / fd.area) or "-",
+                (fd.ha or 0) > 0.005 and fmtLiters(fd.liters / fd.ha) or "-",
             }
             for k, c in ipairs(cols) do
                 setTextAlignment(c.a)
@@ -6696,8 +6789,9 @@ function FieldListHUD:drawHarvestPage(L)
         local sy = bottom
         self:drawRect(rx, sy + rowH, rw, 0.0015, self.colorArea)
         local totArea = 0
-        for _, fd in ipairs(sel.fields) do totArea = totArea + fd.area end
-        local vals = { T("hv_sum"), string.format("%.2f ha", totArea), fmtLiters(sel.total), "100 %", totArea > 0 and fmtLiters(sel.total / totArea) or "-" }
+        local totHa = 0
+        for _, fd in ipairs(sel.fields) do totArea = totArea + fd.area; totHa = totHa + (fd.ha or 0) end
+        local vals = { T("hv_sum"), string.format("%.2f ha", totArea), fmtLiters(sel.total), "100 %", totHa > 0.005 and fmtLiters(sel.total / totHa) or "-" }
         setTextBold(true)
         setTextColor(unpack(self.colorArea))
         for k, c in ipairs(cols) do
@@ -7941,7 +8035,23 @@ end
 -- Die Rückgabe von cutFruitArea/updateMowerArea sind Pixel (1. Wert gemäht/geerntet, 2. Wert gesamt im Streifen),
 -- keine m². Umrechnung: Streifenfläche aus den Eckpunkten x Anteil der betroffenen Pixel.
 function FieldListHUD.pixelsToSqm(pixels, totalPixels, sx, sz, wx, wz, hx, hz)
-    if type(pixels) ~= "number" or type(totalPixels) ~= "number" or totalPixels <= 0 then return 0 end
+    if type(pixels) ~= "number" then return 0 end
+    -- Das Spiel rechnet selbst Pixel x Fruchtpixel-Fläche; diesen Faktor nehmen, wenn er verfügbar ist
+    if FieldListHUD.pixelFactor == nil then
+        local m = g_currentMission
+        local ok, f = false, nil
+        if m ~= nil and m.getFruitPixelsToSqm ~= nil then
+            ok, f = pcall(function() return m:getFruitPixelsToSqm() end)
+        end
+        if ok and type(f) == "number" and f > 0 then
+            FieldListHUD.pixelFactor = f
+        end
+    end
+    if FieldListHUD.pixelFactor ~= nil then
+        return pixels * FieldListHUD.pixelFactor
+    end
+    -- Notlösung: Streifenfläche aus den Eckpunkten x Anteil der betroffenen Pixel (ungenau)
+    if type(totalPixels) ~= "number" or totalPixels <= 0 then return 0 end
     local strip = math.abs((wx - sx) * (hz - sz) - (wz - sz) * (hx - sx))
     return strip * pixels / totalPixels
 end
@@ -7962,9 +8072,22 @@ if FSDensityMapUtil ~= nil and FSDensityMapUtil.cutFruitArea ~= nil then
             if realArea == nil or realArea <= 0 then
                 return realArea, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
             end
+            local px = realArea
             local ok, f = pcall(FieldListHUD.getHarvestFactor, fruitIndex, sx, sz, wx, wz, hx, hz)
             if ok and type(f) == "number" and f ~= 1 and realArea ~= nil then
                 realArea = realArea * f
+            end
+            if not FieldListHUD.inMower then
+                -- Fläche merken; sie wird mit der Ausgabe-Ware in Combine:addCutterArea der richtigen Zeile zugeordnet
+                local sqm = FieldListHUD.pixelsToSqm(px, a2, sx, sz, wx, wz, hx, hz)
+                if sqm > 0 then
+                    local pa = FieldListHUD.pendingArea
+                    if pa == nil then pa = {}; FieldListHUD.pendingArea = pa end
+                    local e = pa[fruitIndex]
+                    if e == nil then e = { sqm = 0 }; pa[fruitIndex] = e end
+                    e.sqm = e.sqm + sqm
+                    e.x, e.z = 0.5 * (wx + hx), 0.5 * (wz + hz)
+                end
             end
             return realArea, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
         end)
@@ -7988,6 +8111,7 @@ if Combine ~= nil and Cutter ~= nil and not Combine.fieldManagerHooksInstalled t
             FieldListHUD.activeCutter = cutter
             local r = superFunc(cutter, dt, hasProcessed)
             FieldListHUD.activeCutter = nil
+            FieldListHUD.pendingArea = nil
             return r
         end)
     Combine.addCutterArea = Utils.overwrittenFunction(Combine.addCutterArea,
@@ -8008,7 +8132,14 @@ if Combine ~= nil and Cutter ~= nil and not Combine.fieldManagerHooksInstalled t
                         local rx, _, rz = getWorldTranslation(combine.rootNode)
                         x, z = rx, rz
                     end
-                    FieldListHUD.safeAddLiters(inputFruitType, applied, x, z)
+                    local outName = FieldListHUD.getOutputRowName(inputFruitType, outputFillType)
+                    FieldListHUD.safeAddLiters(inputFruitType, applied, x, z, outName)
+                    local pa = FieldListHUD.pendingArea
+                    local e = pa ~= nil and pa[inputFruitType] or nil
+                    if e ~= nil then
+                        pa[inputFruitType] = nil
+                        FieldListHUD.safeAddArea(inputFruitType, e.sqm, e.x or x, e.z or z, true, outName)
+                    end
                 end
             end
             return applied
@@ -8098,10 +8229,16 @@ if FSDensityMapUtil ~= nil and FSDensityMapUtil.updateMowerArea ~= nil then
     FSDensityMapUtil.updateMowerArea = Utils.overwrittenFunction(FSDensityMapUtil.updateMowerArea,
         function(fruitIndex, superFunc, sx, sz, wx, wz, hx, hz, ...)
             -- alle Rückgabewerte unverändert durchreichen (auch mehr als vier)
+            FieldListHUD.inMower = true
             local res = table.pack(superFunc(fruitIndex, sx, sz, wx, wz, hx, hz, ...))
+            FieldListHUD.inMower = false
             local area = res[1]
-            if type(area) == "number" and area > 0 and not FieldListHUD.tipSeesMower then
-                FieldListHUD.safeCount(fruitIndex, FieldListHUD.pixelsToSqm(area, res[2], sx, sz, wx, wz, hx, hz), wx, wz, hx, hz, true)
+            if type(area) == "number" and area > 0 then
+                local sqm = FieldListHUD.pixelsToSqm(area, res[2], sx, sz, wx, wz, hx, hz)
+                FieldListHUD.safeAddArea(fruitIndex, sqm, 0.5 * (wx + hx), 0.5 * (wz + hz), false)
+                if not FieldListHUD.tipSeesMower then
+                    FieldListHUD.safeCount(fruitIndex, sqm, wx, wz, hx, hz, true)
+                end
             end
             return table.unpack(res, 1, res.n)
         end)
@@ -8182,7 +8319,98 @@ function FieldListHUD.addHarvestLiters(fruitIndex, liters, x, z, key)
         name = FieldListHUD.FRUIT_ALIAS[name] or name
     end
     rec.harv[year][name] = (rec.harv[year][name] or 0) + liters
+    FieldListHUD.markActive(fn, name)
     dlog(string.format("gezählt Feld %s %s Jahr %s Summe %.0f", tostring(fn), name, tostring(year), rec.harv[year][name]))
+end
+
+-- Geerntete Fläche (m²) wird in derselben Tabelle gezählt, Schlüssel "~NAME". So laufen Speichern und Abgleich unverändert mit.
+-- Letzte Ernte-Aktivität je Feld und Zeile (Spielzeit in ms), für die Anzeige "wird gerade geerntet" (nur Server/Einzelspieler)
+FieldListHUD.activity = {}
+function FieldListHUD.markActive(fieldNumber, name)
+    local m = g_currentMission
+    if m == nil or fieldNumber == nil or name == nil then return end
+    local a = FieldListHUD.activity[fieldNumber]
+    if a == nil then a = {}; FieldListHUD.activity[fieldNumber] = a end
+    a[name] = m.time
+end
+
+function FieldListHUD.getHarvYearTable(x, z)
+    local m = g_currentMission
+    if m == nil or not m:getIsServer() or FieldListHUD.store == nil then return nil end
+    local field = FieldListHUD.getFieldAtPos(x, z)
+    local env = m.environment
+    if field == nil or env == nil or env.currentYear == nil then return nil end
+    local rec = FieldListHUD:getRecord(FieldListHUD:getFieldNumber(field))
+    local year = env.currentYear
+    rec.harv = rec.harv or {}
+    if rec.harv[year] == nil then
+        rec.harv[year] = {}
+        for y in pairs(rec.harv) do
+            if y < year - 2 then rec.harv[y] = nil end
+        end
+    end
+    return rec.harv[year], FieldListHUD:getFieldNumber(field)
+end
+
+-- Zeilen, zu denen die Ernte einer Frucht gehört: eigene Zeile (Tank/Samen) und Schwad-Zeile (Gras, Klee, Luzerne oder WR_...)
+function FieldListHUD.getHarvestRowNames(fruitIndex)
+    FieldListHUD.rowNameCache = FieldListHUD.rowNameCache or {}
+    local c = FieldListHUD.rowNameCache[fruitIndex]
+    if c ~= nil then return c[1], c[2] end
+    local own, sch
+    local ft = g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    if ft ~= nil and ft.name ~= nil then
+        own = string.upper(ft.name)
+        own = FieldListHUD.FRUIT_ALIAS[own] or own
+        local ok, wi = pcall(function() return g_fruitTypeManager:getWindrowFillTypeIndexByFruitTypeIndex(fruitIndex) end)
+        local fname = ok and wi ~= nil and g_fillTypeManager:getFillTypeNameByIndex(wi) or nil
+        if fname ~= nil then
+            fname = string.upper(fname)
+            local base = string.match(fname, "^(.+)_WINDROW$")
+            if base ~= nil and FieldListHUD.WINDROW_FRUITS[base] then
+                sch = base
+            elseif not FieldListHUD.isStrawFillName(fname) then
+                sch = "WR_" .. fname
+            end
+        end
+    end
+    FieldListHUD.rowNameCache[fruitIndex] = { own or false, sch or false }
+    return own, sch
+end
+
+-- Zeilenname der Ernte nach Ausgabe-Ware: kommt nicht die eigene Ware der Frucht aus der Maschine (z. B. Mais -> Häckselgut),
+-- bekommt sie eine eigene Zeile "FRUCHT@WARE". Sonst nil (= normale Zeile der Frucht).
+function FieldListHUD.getOutputRowName(fruitIndex, outputFillType)
+    if fruitIndex == nil or outputFillType == nil then return nil end
+    local ft = g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    if ft == nil or ft.name == nil then return nil end
+    local ownFill = ft.fillType ~= nil and ft.fillType.index or nil
+    if ownFill == nil or ownFill == outputFillType then return nil end
+    local fname = g_fillTypeManager:getFillTypeNameByIndex(outputFillType)
+    if fname == nil then return nil end
+    local own = string.upper(ft.name)
+    own = FieldListHUD.FRUIT_ALIAS[own] or own
+    return own .. "@" .. string.upper(fname)
+end
+
+-- sqm = geerntete Fläche; withOwn: auch auf die eigene Zeile (Dreschen/Häckseln), sonst nur Schwad-Zeile (Mähen)
+function FieldListHUD.addHarvestArea(fruitIndex, sqm, x, z, withOwn, ownOverride)
+    if type(sqm) ~= "number" or sqm <= 0 then return end
+    local own, sch = FieldListHUD.getHarvestRowNames(fruitIndex)
+    if ownOverride ~= nil then own = ownOverride end
+    if not own and not sch then return end
+    local t, fn = FieldListHUD.getHarvYearTable(x, z)
+    if t == nil then return end
+    if withOwn and own then t["~" .. own] = (t["~" .. own] or 0) + sqm; FieldListHUD.markActive(fn, own) end
+    if sch and (not withOwn or sch ~= own) then t["~" .. sch] = (t["~" .. sch] or 0) + sqm; FieldListHUD.markActive(fn, sch) end
+end
+
+function FieldListHUD.safeAddArea(...)
+    local ok, err = pcall(FieldListHUD.addHarvestArea, ...)
+    if not ok and FieldListHUD.cntErrLeft > 0 then
+        FieldListHUD.cntErrLeft = FieldListHUD.cntErrLeft - 1
+        print("[FieldManager] Fläche Fehler: " .. tostring(err))
+    end
 end
 
 -- Mäher: Fläche in m² (aus Pixeln) x Schwadmenge je m²; Position = Mitte des Streifens.
@@ -8195,7 +8423,7 @@ end
 
 FieldListHUD.SER_STR  = { "next", "cur", "skip", "sowFruit", "post" }
 FieldListHUD.SER_BOOL = { "gap", "unused", "manual", "autoNext", "autoOff", "ccPending", "ccPlanned", "done", "skipEmpty", "silage", "curSilage" }
-FieldListHUD.SER_NUM  = { "sowFactor", "sprayKey", "lastSpray", "lastGs", "ccGround" }
+FieldListHUD.SER_NUM  = { "sowFactor", "sprayKey", "sprayGs", "lastSpray", "lastGs", "ccGround" }
 
 function FieldListHUD.serializeRec(rec)
     local p = {}

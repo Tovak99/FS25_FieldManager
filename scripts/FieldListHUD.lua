@@ -4076,12 +4076,24 @@ local function fmtPerHour(v)
     return n .. " l/h"
 end
 
+-- Ertrag je m²: bei Schnittfrüchten mit eigenem Schwad (z. B. Ackergras: 0,3988 l/m² roh, 3 l/m² als Schwad)
+-- zählt die Schwadmenge, denn Mäher/Häcksler wandeln den Rohertrag darauf um.
+function FieldListHUD.fruitLitersPerSqm(ft)
+    if ft == nil then return 0 end
+    local base = ft.literPerSqm or 0
+    local wr = ft.windrowLiterPerSqm or 0
+    if wr > base and FieldListHUD.CUT_CROPS ~= nil and FieldListHUD.CUT_CROPS[string.upper(ft.name or "")] then
+        return wr
+    end
+    return base
+end
+
 function FieldListHUD:getFruitLiters(fruitIndex, areaHa, pct)
     local ft = fruitIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex) or nil
     if ft == nil then
         return 0
     end
-    return (ft.literPerSqm or 0) * (areaHa or 0) * 10000 * (1 + (pct or 0) / 100)
+    return FieldListHUD.fruitLitersPerSqm(ft) * (areaHa or 0) * 10000 * (1 + (pct or 0) / 100)
 end
 
 -- Aktuelle Spielperiode (1 = März) oder nil
@@ -4663,7 +4675,8 @@ function FieldListHUD:collectFruitTotals()
     -- Sommerformen zählen für Produktionen wie die Winterform (z. B. Sommerweizen -> Weizen): eine gemeinsame Zeile
     local SUMMER_ALIAS = FieldListHUD.FRUIT_ALIAS
     local function slot(name)
-        name = SUMMER_ALIAS[name] or name
+        -- Ackergras liefert Gras (Schwad, Faktor 1) und wird in der Tabelle unter Gras geführt
+        name = SUMMER_ALIAS[name] or (name == "FIELDGRASS" and "GRASS") or name
         local en = self:getEntryByFruitName(name)
         local title = en ~= nil and en.fruitTitle or nil
         if title == nil then
@@ -5294,7 +5307,9 @@ function FieldListHUD:getRowInput(item)
     elseif item.isAnimal then
         return inp.fill[item.name] or 0
     end
-    return inp.fruit[string.upper(item.name or "")] or 0
+    local v = inp.fruit[string.upper(item.name or "")] or 0
+    if item.name == "GRASS" then v = v + (inp.fruit["FIELDGRASS"] or 0) end
+    return v
 end
 
 -- Lagerbestand einer Zeile der Seite 3 in Litern (nil, wenn die Ware nicht zugeordnet werden kann)
@@ -5329,6 +5344,11 @@ function FieldListHUD:getRowStock(item)
         if wi ~= nil then
             sum = sum + (stock[wi] or 0)
         end
+    end
+    if item.name == "GRASS" and not item.isStraw and not item.isAnimal and not item.isWindrow then
+        local fg = g_fruitTypeManager:getFruitTypeByName("FIELDGRASS")
+        local fgi = fg ~= nil and g_fruitTypeManager:getFillTypeIndexByFruitTypeIndex(fg.index) or nil
+        if fgi ~= nil and fgi ~= idx then sum = sum + (stock[fgi] or 0) end
     end
     return sum
 end
@@ -5469,7 +5489,8 @@ function FieldListHUD:getItemSources(item)
         end
         local fi = g_fruitTypeManager:getFruitTypeIndexByFillTypeIndex(fti)
         local ft = fi ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fi) or nil
-        if ft == nil or string.upper(ft.name) ~= string.upper(item.name or "") then
+        if ft == nil or (string.upper(ft.name) ~= string.upper(item.name or "")
+            and not (item.name == "GRASS" and string.upper(ft.name) == "FIELDGRASS")) then
             return false
         end
         -- Schwad-Waren (z. B. Flachsschwad) gehören zur eigenen Zeile, nicht zum Korn
@@ -7945,7 +7966,7 @@ function FieldListHUD.countHarvest(fruitIndex, realArea, wx, wz, hx, hz)
     end
     local name = string.upper(ft.name)
     name = FieldListHUD.FRUIT_ALIAS[name] or name
-    rec.harv[year][name] = (rec.harv[year][name] or 0) + realArea * ft.literPerSqm
+    rec.harv[year][name] = (rec.harv[year][name] or 0) + realArea * FieldListHUD.fruitLitersPerSqm(ft)
 end
 
 FieldListHUD.SER_STR  = { "next", "cur", "skip", "sowFruit", "post" }

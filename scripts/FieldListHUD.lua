@@ -4093,7 +4093,7 @@ function FieldListHUD:getFruitLiters(fruitIndex, areaHa, pct)
     if ft == nil then
         return 0
     end
-    return FieldListHUD.fruitLitersPerSqm(ft) * (areaHa or 0) * 10000 * (1 + (pct or 0) / 100)
+    return (ft.literPerSqm or 0) * (areaHa or 0) * 10000 * (1 + (pct or 0) / 100)
 end
 
 -- Aktuelle Spielperiode (1 = März) oder nil
@@ -4676,7 +4676,7 @@ function FieldListHUD:collectFruitTotals()
     local SUMMER_ALIAS = FieldListHUD.FRUIT_ALIAS
     local function slot(name)
         -- Ackergras liefert Gras (Schwad, Faktor 1) und wird in der Tabelle unter Gras geführt
-        name = SUMMER_ALIAS[name] or (name == "FIELDGRASS" and "GRASS") or name
+        name = SUMMER_ALIAS[name] or name
         local en = self:getEntryByFruitName(name)
         local title = en ~= nil and en.fruitTitle or nil
         if title == nil then
@@ -5308,7 +5308,6 @@ function FieldListHUD:getRowInput(item)
         return inp.fill[item.name] or 0
     end
     local v = inp.fruit[string.upper(item.name or "")] or 0
-    if item.name == "GRASS" then v = v + (inp.fruit["FIELDGRASS"] or 0) end
     return v
 end
 
@@ -5344,11 +5343,6 @@ function FieldListHUD:getRowStock(item)
         if wi ~= nil then
             sum = sum + (stock[wi] or 0)
         end
-    end
-    if item.name == "GRASS" and not item.isStraw and not item.isAnimal and not item.isWindrow then
-        local fg = g_fruitTypeManager:getFruitTypeByName("FIELDGRASS")
-        local fgi = fg ~= nil and g_fruitTypeManager:getFillTypeIndexByFruitTypeIndex(fg.index) or nil
-        if fgi ~= nil and fgi ~= idx then sum = sum + (stock[fgi] or 0) end
     end
     return sum
 end
@@ -5489,8 +5483,7 @@ function FieldListHUD:getItemSources(item)
         end
         local fi = g_fruitTypeManager:getFruitTypeIndexByFillTypeIndex(fti)
         local ft = fi ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fi) or nil
-        if ft == nil or (string.upper(ft.name) ~= string.upper(item.name or "")
-            and not (item.name == "GRASS" and string.upper(ft.name) == "FIELDGRASS")) then
+        if ft == nil or string.upper(ft.name) ~= string.upper(item.name or "") then
             return false
         end
         -- Schwad-Waren (z. B. Flachsschwad) gehören zur eigenen Zeile, nicht zum Korn
@@ -6485,13 +6478,25 @@ function FieldListHUD:getHarvestData(tab)
         local e = own[id]
         local t = e ~= nil and rec.harv ~= nil and rec.harv[year] or nil
         if t ~= nil then
+            -- alte Schlüssel "WR_GRASS_WINDROW" usw. (frühere Testversion) gehören zur Zeile Gras/Klee/Luzerne
+            local merged = {}
             for name, l in pairs(t) do
+                local base = string.match(name, "^WR_(.+)_WINDROW$")
+                if base ~= nil and FieldListHUD.WINDROW_FRUITS ~= nil and FieldListHUD.WINDROW_FRUITS[base] then name = base end
+                merged[name] = (merged[name] or 0) + l
+            end
+            for name, l in pairs(merged) do
                 if l > 0 then
                     local f = byFruit[name]
                     if f == nil then
-                        local info = self:getEntryByFruitName(name)
-                        f = { name = name, title = info ~= nil and info.fruitTitle or name,
-                              icon = info ~= nil and info.iconFilename or nil, total = 0, fields = {} }
+                        local info = string.sub(name, 1, 3) ~= "WR_" and self:getEntryByFruitName(name) or nil
+                        local title, icon = info ~= nil and info.fruitTitle or name, info ~= nil and info.iconFilename or nil
+                        if string.sub(name, 1, 3) == "WR_" then
+                            local fi = g_fillTypeManager:getFillTypeIndexByName(string.sub(name, 4))
+                            local fd = fi ~= nil and g_fillTypeManager:getFillTypeByIndex(fi) or nil
+                            if fd ~= nil then title, icon = fd.title or title, fd.hudOverlayFilename end
+                        end
+                        f = { name = name, title = title, icon = icon, total = 0, fields = {} }
                         byFruit[name] = f
                         list[#list + 1] = f
                     end
@@ -7863,11 +7868,11 @@ function FieldListHUD.getHarvestFactor(fruitIndex, sx, sz, wx, wz, hx, hz)
         return 1
     end
     local cx, cz = 0.5 * (wx + hx), 0.5 * (wz + hz)
-    local farmlandId = g_farmlandManager:getFarmlandAtWorldPosition(cx, cz)
+    local farmlandId = FieldListHUD.getFarmlandIdAt(cx, cz)
     if farmlandId ~= nil and g_missionManager ~= nil and g_missionManager:getIsMissionRunningOnFarmland(farmlandId) then
         return 1
     end
-    local field = g_fieldManager:getFieldAtWorldPosition(cx, cz)
+    local field = FieldListHUD.getFieldAtPos(cx, cz)
     if field == nil then
         return 1
     end
@@ -7885,6 +7890,71 @@ function FieldListHUD.getHarvestFactor(fruitIndex, sx, sz, wx, wz, hx, hz)
     return rec.sowFactor
 end
 
+-- Feld an einer Weltposition. getFieldAtWorldPosition gibt es in FS25 nicht (Fehler im Log), daher mehrere Wege:
+-- 1) vorhandene FieldManager-Methoden, 2) Hof-ID (Farmland) an der Position und das nächstgelegene Feld dieses Hofs.
+function FieldListHUD.getFarmlandIdAt(x, z)
+    local fm = g_farmlandManager
+    if fm == nil then return nil end
+    local v
+    if fm.getFarmlandIdAtWorldPosition ~= nil then
+        v = fm:getFarmlandIdAtWorldPosition(x, z)
+    elseif fm.getFarmlandAtWorldPosition ~= nil then
+        v = fm:getFarmlandAtWorldPosition(x, z)
+    end
+    if type(v) == "table" then v = v.id end
+    if v == nil or v == 0 then return nil end
+    return v
+end
+
+function FieldListHUD.getFieldAtPos(x, z)
+    local fm = g_fieldManager
+    if fm == nil then return nil end
+    if fm.getFieldAtWorldPosition ~= nil then
+        local f = fm:getFieldAtWorldPosition(x, z)
+        if f ~= nil then return f end
+    end
+    if fm.getFieldIdAtWorldPosition ~= nil and fm.getFieldById ~= nil then
+        local id = fm:getFieldIdAtWorldPosition(x, z)
+        if id ~= nil and id ~= 0 then
+            local f = fm:getFieldById(id)
+            if f ~= nil then return f end
+        end
+    end
+    local fid = FieldListHUD.getFarmlandIdAt(x, z)
+    if fid == nil then return nil end
+    local best, bestD
+    for _, field in pairs(fm:getFields()) do
+        if field.farmland ~= nil and field.farmland.id == fid then
+            local cx, cz
+            if field.getCenterOfFieldWorldPosition ~= nil then
+                cx, cz = field:getCenterOfFieldWorldPosition()
+            else
+                cx, cz = field.posX, field.posZ
+            end
+            local d = cx ~= nil and ((cx - x) ^ 2 + (cz - z) ^ 2) or 1e18
+            if bestD == nil or d < bestD then best, bestD = field, d end
+        end
+    end
+    return best
+end
+
+-- Die Rückgabe von cutFruitArea/updateMowerArea sind Pixel (1. Wert gemäht/geerntet, 2. Wert gesamt im Streifen),
+-- keine m². Umrechnung: Streifenfläche aus den Eckpunkten x Anteil der betroffenen Pixel.
+function FieldListHUD.pixelsToSqm(pixels, totalPixels, sx, sz, wx, wz, hx, hz)
+    if type(pixels) ~= "number" or type(totalPixels) ~= "number" or totalPixels <= 0 then return 0 end
+    local strip = math.abs((wx - sx) * (hz - sz) - (wz - sz) * (hx - sx))
+    return strip * pixels / totalPixels
+end
+
+FieldListHUD.cntErrLeft = 5
+function FieldListHUD.safeCount(...)
+    local ok, err = pcall(FieldListHUD.countHarvest, ...)
+    if not ok and FieldListHUD.cntErrLeft > 0 then
+        FieldListHUD.cntErrLeft = FieldListHUD.cntErrLeft - 1
+        print("[FieldManager] countHarvest Fehler: " .. tostring(err))
+    end
+end
+
 if FSDensityMapUtil ~= nil and FSDensityMapUtil.cutFruitArea ~= nil then
     FSDensityMapUtil.cutFruitArea = Utils.overwrittenFunction(FSDensityMapUtil.cutFruitArea,
         function(fruitIndex, superFunc, sx, sz, wx, wz, hx, hz, ...)
@@ -7896,8 +7966,144 @@ if FSDensityMapUtil ~= nil and FSDensityMapUtil.cutFruitArea ~= nil then
             if ok and type(f) == "number" and f ~= 1 and realArea ~= nil then
                 realArea = realArea * f
             end
-            pcall(FieldListHUD.countHarvest, fruitIndex, realArea, wx, wz, hx, hz)
             return realArea, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
+        end)
+end
+
+-- Mähdrescher/Häcksler: die echten Liter kommen aus Combine:addCutterArea (Rückgabe = tatsächlich übernommene Menge).
+-- Muss beim Laden der Datei installiert werden, weil Funktionen wie addCutterArea beim Finalisieren der
+-- Fahrzeugtypen in jeden Typ kopiert werden. Vorbild: FS25_YieldTracker.
+function FieldListHUD.safeAddLiters(...)
+    local ok, err = pcall(FieldListHUD.addHarvestLiters, ...)
+    if not ok and FieldListHUD.cntErrLeft > 0 then
+        FieldListHUD.cntErrLeft = FieldListHUD.cntErrLeft - 1
+        print("[FieldManager] Ernte Fehler: " .. tostring(err))
+    end
+end
+
+if Combine ~= nil and Cutter ~= nil and not Combine.fieldManagerHooksInstalled then
+    Combine.fieldManagerHooksInstalled = true
+    Cutter.onEndWorkAreaProcessing = Utils.overwrittenFunction(Cutter.onEndWorkAreaProcessing,
+        function(cutter, superFunc, dt, hasProcessed)
+            FieldListHUD.activeCutter = cutter
+            local r = superFunc(cutter, dt, hasProcessed)
+            FieldListHUD.activeCutter = nil
+            return r
+        end)
+    Combine.addCutterArea = Utils.overwrittenFunction(Combine.addCutterArea,
+        function(combine, superFunc, area, liters, inputFruitType, outputFillType, strawRatio, farmId, cutterLoad)
+            local applied = superFunc(combine, area, liters, inputFruitType, outputFillType, strawRatio, farmId, cutterLoad)
+            if combine.isServer and type(applied) == "number" and applied > 0 and inputFruitType ~= nil then
+                local cutter = FieldListHUD.activeCutter
+                local spec = cutter ~= nil and cutter.spec_cutter or nil
+                if not (spec ~= nil and spec.useWindrow) then -- Pickup holt Schwad: schon beim Mähen gezählt
+                    local x, z
+                    local wa = cutter ~= nil and cutter.getWorkAreaByIndex ~= nil and cutter:getWorkAreaByIndex(1) or nil
+                    if wa ~= nil and wa.start ~= nil and wa.width ~= nil and wa.height ~= nil then
+                        local sx, _, sz = getWorldTranslation(wa.start)
+                        local wx, _, wz = getWorldTranslation(wa.width)
+                        local hx, _, hz = getWorldTranslation(wa.height)
+                        x, z = (sx + wx + hx) / 3, (sz + wz + hz) / 3
+                    else
+                        local rx, _, rz = getWorldTranslation(combine.rootNode)
+                        x, z = rx, rz
+                    end
+                    FieldListHUD.safeAddLiters(inputFruitType, applied, x, z)
+                end
+            end
+            return applied
+        end)
+end
+
+-- Schwad: Mäher und Drescher legen Schwad über DensityMapHeightUtil.tipToGroundAroundLine auf den Boden.
+-- Die abgelegte Menge (Rückgabewert) wird der Frucht zugeschrieben, zu der das Schwad gehört (Gras-Schwad -> Gras),
+-- auch wenn es hinter einem Drescher liegt (Ackergras-Schwad zählt unter Gras). Vorbild: FS25_YieldTracker.
+FieldListHUD.WINDROW_FRUITS = { GRASS = true, CLOVER = true, ALFALFA = true, MEADOW = true, FIELDGRASS = true }
+
+function FieldListHUD.onTip(vehicle, delta, fillTypeIndex, sx, sz, ex, ez, dropped)
+    if vehicle == nil or FieldListHUD.isDischarging or type(dropped) ~= "number" or dropped <= 0
+        or type(delta) ~= "number" or delta <= 0 then
+        return
+    end
+    if vehicle.spec_mower == nil and vehicle.spec_combine == nil and vehicle.spec_cutter == nil then
+        return
+    end
+    local fname = g_fillTypeManager:getFillTypeNameByIndex(fillTypeIndex)
+    -- Gras-, Klee-, Luzerneschwad direkt am Namen der Ware erkennen: mehrere Früchte (Gras, Ackergras, Wiese) teilen
+    -- sich dieselbe Schwad-Ware, die Zuordnung über die Fruchttypen wäre dann von der Lade-Reihenfolge abhängig.
+    local fr = nil
+    local base = fname ~= nil and string.match(string.upper(fname), "^(.+)_WINDROW$") or nil
+    if base ~= nil and FieldListHUD.WINDROW_FRUITS[base] then
+        fr = base
+    else
+        fr = FieldListHUD.getWindrowFruit(fillTypeIndex)
+    end
+    if fr == nil then return end
+    if vehicle.spec_mower ~= nil then
+        FieldListHUD.tipSeesMower = true -- ab jetzt zählt der Mäher exakt, die Näherung aus updateMowerArea entfällt
+    end
+    local x, z = 0.5 * (sx + ex), 0.5 * (sz + ez)
+    if FieldListHUD.WINDROW_FRUITS[fr] ~= nil then
+        -- Gras-, Klee-, Luzerneschwad zählt unter der Frucht selbst (Ackergras-Schwad unter Gras)
+        local ft = g_fruitTypeManager:getFruitTypeByName(fr)
+        if ft ~= nil then FieldListHUD.addHarvestLiters(ft.index, dropped, x, z) end
+    elseif fname ~= nil and not FieldListHUD.isStrawFillName(string.upper(fname)) then
+        -- andere Schwad-Waren (Flachsschwad, Hanfschwad, ...) bekommen eine eigene Zeile
+        FieldListHUD.addHarvestLiters(nil, dropped, x, z, "WR_" .. string.upper(fname))
+    end
+end
+
+-- Schwad-Ware -> Frucht, aus den Fruchttypen der Karte aufgebaut (Name der Frucht in Großbuchstaben)
+function FieldListHUD.getWindrowFruit(fillTypeIndex)
+    if FieldListHUD.windrowMap == nil then
+        local map = {}
+        for _, ft in ipairs(g_fruitTypeManager:getFruitTypes()) do
+            local ok, wi = pcall(function() return g_fruitTypeManager:getWindrowFillTypeIndexByFruitTypeIndex(ft.index) end)
+            if ok and wi ~= nil then map[wi] = string.upper(ft.name or "") end
+        end
+        FieldListHUD.windrowMap = map
+    end
+    return FieldListHUD.windrowMap[fillTypeIndex]
+end
+
+if DensityMapHeightUtil ~= nil and DensityMapHeightUtil.tipToGroundAroundLine ~= nil and not DensityMapHeightUtil.fieldManagerTipHook then
+    DensityMapHeightUtil.fieldManagerTipHook = true
+    DensityMapHeightUtil.tipToGroundAroundLine = Utils.overwrittenFunction(DensityMapHeightUtil.tipToGroundAroundLine,
+        function(vehicle, superFunc, delta, fillTypeIndex, sx, sy, sz, ex, ey, ez, ...)
+            local res = table.pack(superFunc(vehicle, delta, fillTypeIndex, sx, sy, sz, ex, ey, ez, ...))
+            local ok, err = pcall(FieldListHUD.onTip, vehicle, delta, fillTypeIndex, sx, sz, ex, ez, res[1])
+            if not ok and FieldListHUD.cntErrLeft > 0 then
+                FieldListHUD.cntErrLeft = FieldListHUD.cntErrLeft - 1
+                print("[FieldManager] Schwad Fehler: " .. tostring(err))
+            end
+            return table.unpack(res, 1, res.n)
+        end)
+end
+
+-- Abkippen auf den Boden (Anhänger, Ladewagen, Schaufel) ist kein Mähen und wird nicht gezählt.
+if Dischargeable ~= nil and Dischargeable.dischargeToGround ~= nil and not Dischargeable.fieldManagerHook then
+    Dischargeable.fieldManagerHook = true
+    Dischargeable.dischargeToGround = Utils.overwrittenFunction(Dischargeable.dischargeToGround,
+        function(vehicle, superFunc, dischargeNode, emptyLiters)
+            FieldListHUD.isDischarging = true
+            local res = table.pack(superFunc(vehicle, dischargeNode, emptyLiters))
+            FieldListHUD.isDischarging = false
+            return table.unpack(res, 1, res.n)
+        end)
+end
+
+-- Mäher laufen nicht über cutFruitArea, sondern über updateMowerArea(Frucht, sx, sz, wx, wz, hx, hz, ...).
+-- Der Mäher fragt dabei alle Fruchtarten ab; nur die mit Rückgabe > 0 wurden wirklich gemäht.
+if FSDensityMapUtil ~= nil and FSDensityMapUtil.updateMowerArea ~= nil then
+    FSDensityMapUtil.updateMowerArea = Utils.overwrittenFunction(FSDensityMapUtil.updateMowerArea,
+        function(fruitIndex, superFunc, sx, sz, wx, wz, hx, hz, ...)
+            -- alle Rückgabewerte unverändert durchreichen (auch mehr als vier)
+            local res = table.pack(superFunc(fruitIndex, sx, sz, wx, wz, hx, hz, ...))
+            local area = res[1]
+            if type(area) == "number" and area > 0 and not FieldListHUD.tipSeesMower then
+                FieldListHUD.safeCount(fruitIndex, FieldListHUD.pixelsToSqm(area, res[2], sx, sz, wx, wz, hx, hz), wx, wz, hx, hz, true)
+            end
+            return table.unpack(res, 1, res.n)
         end)
 end
 
@@ -7941,21 +8147,27 @@ function FieldListHUD.parseHarv(str)
     return h
 end
 
-function FieldListHUD.countHarvest(fruitIndex, realArea, wx, wz, hx, hz)
+-- Trägt Liter einer Frucht auf dem Feld an der Position x/z für das laufende Jahr ein.
+function FieldListHUD.addHarvestLiters(fruitIndex, liters, x, z, key)
+    local function dlog() end
     local m = g_currentMission
-    if m == nil or not m:getIsServer() or FieldListHUD.store == nil or realArea == nil or realArea <= 0 then
+    if m == nil or not m:getIsServer() or FieldListHUD.store == nil or liters == nil or liters <= 0 then
+        dlog("abgebrochen: Server/Store/Liter")
         return
     end
-    local ft = g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
-    if ft == nil or ft.literPerSqm == nil or ft.name == nil then
+    local ft = fruitIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex) or nil
+    if key == nil and (ft == nil or ft.name == nil) then
+        dlog("abgebrochen: Fruchttyp unbekannt")
         return
     end
-    local field = g_fieldManager:getFieldAtWorldPosition(0.5 * (wx + hx), 0.5 * (wz + hz))
+    local field = FieldListHUD.getFieldAtPos(x, z)
     local env = m.environment
     if field == nil or env == nil or env.currentYear == nil then
+        dlog("abgebrochen: kein Feld an der Position oder kein Jahr (" .. tostring(key or ft.name) .. ")")
         return
     end
-    local rec = FieldListHUD:getRecord(FieldListHUD:getFieldNumber(field))
+    local fn = FieldListHUD:getFieldNumber(field)
+    local rec = FieldListHUD:getRecord(fn)
     local year = env.currentYear
     rec.harv = rec.harv or {}
     if rec.harv[year] == nil then
@@ -7964,9 +8176,21 @@ function FieldListHUD.countHarvest(fruitIndex, realArea, wx, wz, hx, hz)
             if y < year - 2 then rec.harv[y] = nil end
         end
     end
-    local name = string.upper(ft.name)
-    name = FieldListHUD.FRUIT_ALIAS[name] or name
-    rec.harv[year][name] = (rec.harv[year][name] or 0) + realArea * FieldListHUD.fruitLitersPerSqm(ft)
+    local name = key
+    if name == nil then
+        name = string.upper(ft.name)
+        name = FieldListHUD.FRUIT_ALIAS[name] or name
+    end
+    rec.harv[year][name] = (rec.harv[year][name] or 0) + liters
+    dlog(string.format("gezählt Feld %s %s Jahr %s Summe %.0f", tostring(fn), name, tostring(year), rec.harv[year][name]))
+end
+
+-- Mäher: Fläche in m² (aus Pixeln) x Schwadmenge je m²; Position = Mitte des Streifens.
+function FieldListHUD.countHarvest(fruitIndex, sqm, wx, wz, hx, hz, asWindrow)
+    local ft = g_fruitTypeManager:getFruitTypeByIndex(fruitIndex)
+    if ft == nil or sqm == nil or sqm <= 0 then return end
+    local lps = asWindrow and FieldListHUD.fruitLitersPerSqm(ft) or (ft.literPerSqm or 0)
+    FieldListHUD.addHarvestLiters(fruitIndex, sqm * lps, 0.5 * (wx + hx), 0.5 * (wz + hz))
 end
 
 FieldListHUD.SER_STR  = { "next", "cur", "skip", "sowFruit", "post" }

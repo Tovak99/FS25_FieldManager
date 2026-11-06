@@ -263,7 +263,7 @@
         <text name="fl_hv_perha" text="ERTRAG / HA"/>
         <text name="fl_hv_sum" text="SUMME"/>
         <text name="fl_hv_none" text="In diesem Zeitraum wurde noch nichts geerntet."/>
-        <text name="fl_hv_hint" text="Jahr %d im Spiel. Gezählt wird ab der Installation des Mods (Näherung: Erntefläche x Liter je m²)."/>
+        <text name="fl_hv_hint" text="Jahr %d im Spiel. Gezählt wird ab der Installation des Mods (Mähdrescher und Häcksler: tatsächliche Liter; Mäher: Näherung aus Fläche x Schwad je m²)."/>
         <text name="fl_silage_row" text="Silage / Häckselgut"/>
         <text name="fl_use_grain" text="Körner"/>
         <text name="fl_use_silage" text="Silage"/>

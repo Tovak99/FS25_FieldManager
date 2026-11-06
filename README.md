@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.2** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.3** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -56,7 +56,10 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 <img width="1481" height="909" alt="image" src="https://github.com/user-attachments/assets/55ee4f4a-7514-4120-9061-c364def5dd55" />
 
 ### Seite 5: Tatsächlich geerntet
-- Zählt die tatsächlich geernteten Mengen je Frucht und Feld (Näherung: Erntefläche x Liter je m²), gespeichert im Spielstand, drei Jahre
+- Zählt die tatsächlich geernteten Mengen je Frucht und Feld, gespeichert im Spielstand, drei Jahre
+- Mähdrescher und Häcksler: die echten Liter, die in den Tank kommen (z. B. Ackergras-Samen, Körner, Häckselgut)
+- Schwad: die Menge, die Mäher und Drescher auf dem Boden ablegen. Gras-, Klee- und Luzerneschwad zählt unter Gras, Klee und Luzerne (auch das Schwad hinter dem Drescher bei Ackergras), andere Schwad-Waren wie Flachs- und Hanfschwad bekommen eine eigene Zeile, Stroh wird nicht gezählt
+- Ballenpressen, Ladewagen und Abkippen zählen nicht noch einmal
 - Reiter Dieses Jahr, Letztes Jahr, Vor 2 Jahren; links die Früchte mit Menge, rechts die Felder der gewählten Frucht mit Fläche, Menge, Anteil in % und Ertrag je Hektar plus Summenzeile
 - Gezählt wird erst ab der Installation des Mods; im Mehrspielerspiel zählt der Server, die Clients bekommen die Werte per Abgleich
 

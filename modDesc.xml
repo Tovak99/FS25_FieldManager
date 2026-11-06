@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <modDesc descVersion="90">
     <author>Tovak</author>
-    <version>1.1.4.2</version>
+    <version>1.1.4.3</version>
 
     <title>
         <en>Field Manager</en>
@@ -34,7 +34,7 @@ Funktionen:
 - Anstehende Arbeiten je Feld: Ernte, Pflügen, Steine, Kalk, Dünger, Unkraut, Zwischenfrucht, Aussaat, Walzen, als sortierbare Tabelle
 - Anbaukalender je Feld mit Saat- und Erntemonaten
 - Ertragsübersicht: erwartete Ernte in diesem und im nächsten Jahr im Vergleich zum Bedarf deiner Produktionen, Fehlmenge in Litern und Hektar
-- Ernteübersicht: tatsächlich geerntete Mengen je Frucht und Feld mit Anteil, dieses Jahr, letztes Jahr und vor zwei Jahren
+- Ernteübersicht: tatsächlich geerntete Mengen je Frucht und Feld mit Anteil, dieses Jahr, letztes Jahr und vor zwei Jahren, Tank-Menge und Schwad getrennt (Ackergras-Samen und Gras-Schwad)
 - Silage-/Häckselgut-Zeile mit Mais (Körner oder Silage je Feld), Fahrsilos im Lager, Strohbedarf, Planung deckt Fehlmengen
 - Markiert, welche Felder zur Deckung des Produktionsbedarfs gebraucht werden
 - Arbeiten verschieben: Klick auf eine Arbeit auf der Arbeiten-Seite blendet sie bis zum nächsten Monat aus, ein erneuter Klick holt sie zurück

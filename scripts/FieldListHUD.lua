@@ -5608,9 +5608,18 @@ function FieldListHUD:getItemSources(item)
                         demand = demand + input.amount * perYear
                     end
                 end
+                -- Silage, die eine Produktion selbst herstellt (Fermenter), wird in der Zeile vom Bedarf abgezogen:
+                -- im Fenster als negativer Wert zeigen, damit die Summe zur Zeile passt
+                if item.isSilage and perYear ~= nil then
+                    for _, o in pairs(prod.outputs or {}) do
+                        if o.type ~= nil and o.amount ~= nil and g_fillTypeManager:getFillTypeNameByIndex(o.type) == "SILAGE" then
+                            demand = demand - o.amount * perYear
+                        end
+                    end
+                end
             end
         end
-        if level > 0 or demand > 0 then
+        if level > 0 or demand ~= 0 then
             local role = T("pop_input")
             if isOut and isIn then role = T("pop_store")
             elseif isOut then role = T("pop_output") end
@@ -5745,7 +5754,11 @@ function FieldListHUD:drawPopup(L)
         setTextAlignment(RenderText.ALIGN_LEFT)
         setTextColor(unpack(r.demand > 0 and self.colorWork or self.colorSub))
         setTextAlignment(RenderText.ALIGN_RIGHT)
-        renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
+        if r.demand < 0 then
+            renderText(rx[4], ry + rowH / 2, 0.013, "-" .. fmtLiters(-r.demand)) -- Eigenerzeugung (z. B. Fermenter)
+        else
+            renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
+        end
         setTextAlignment(RenderText.ALIGN_LEFT)
         if r.isInput then sumIn = sumIn + r.level else sumOther = sumOther + r.level end
     end

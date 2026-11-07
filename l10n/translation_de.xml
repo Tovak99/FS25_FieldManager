@@ -283,6 +283,7 @@
         <text name="fl_pop_amount" text="MENGE"/>
         <text name="fl_pop_demand" text="BEDARF PRO JAHR"/>
         <text name="fl_pop_demand_h" text="BEDARF PRO STUNDE"/>
+        <text name="fl_pop_demand_p" text="BEDARF / ERZEUGUNG PRO JAHR"/>
         <text name="fl_pop_none" text="Keine Produktion nutzt diese Ware."/>
         <text name="fl_pop_sum_input" text="Eingang gesamt:"/>
         <text name="fl_pop_sum_store" text="Lager/Ausgang:"/>

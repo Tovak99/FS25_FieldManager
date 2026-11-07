@@ -283,6 +283,7 @@
         <text name="fl_pop_amount" text="AMOUNT"/>
         <text name="fl_pop_demand" text="DEMAND PER YEAR"/>
         <text name="fl_pop_demand_h" text="DEMAND PER HOUR"/>
+        <text name="fl_pop_demand_p" text="DEMAND / OUTPUT PER YEAR"/>
         <text name="fl_pop_none" text="No production uses this item."/>
         <text name="fl_pop_sum_input" text="Total input:"/>
         <text name="fl_pop_sum_store" text="Storage/output:"/>

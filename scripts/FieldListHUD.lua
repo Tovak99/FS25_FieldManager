@@ -5592,7 +5592,7 @@ function FieldListHUD:getItemSources(item)
                 end
             end
         end
-        local demand = 0
+        local demand, produce = 0, 0
         local ppName = tostring(pp.getName ~= nil and pp:getName() or "?")
         local lagerName = string.find(ppName, "Ballenlager", 1, true) ~= nil
             or string.find(ppName, "Zentrallager", 1, true) ~= nil
@@ -5613,13 +5613,21 @@ function FieldListHUD:getItemSources(item)
                         demand = demand + input.amount * perYear
                     end
                 end
+                -- Silage, die die Produktion selbst herstellt (Fermenter): im Fenster als Erzeugung zeigen
+                if item.isSilage and perYear ~= nil then
+                    for _, o in pairs(prod.outputs or {}) do
+                        if o.type ~= nil and o.amount ~= nil and matches(o.type) then
+                            produce = produce + o.amount * perYear
+                        end
+                    end
+                end
             end
         end
-        if level > 0 or demand > 0 then
+        if level > 0 or demand > 0 or produce > 0 then
             local role = T("pop_input")
             if isOut and isIn then role = T("pop_store")
             elseif isOut then role = T("pop_output") end
-            table.insert(out, { name = ppName, role = role, level = level, demand = demand, isInput = isIn and not isOut })
+            table.insert(out, { name = ppName, role = role, level = level, demand = demand, produce = produce, isInput = isIn and not isOut })
         end
     end
     -- Fahrsilos (Silage/Häckselgut, auch während der Gärung)
@@ -5709,7 +5717,7 @@ function FieldListHUD:drawPopup(L)
     self:drawRect(x, top - headH, w, headH, self.colorTile)
     setTextAlignment(RenderText.ALIGN_LEFT)
     setTextColor(unpack(self.colorTitle))
-    local heads = { T("pop_prod"), T("pop_kind"), T("pop_amount"), T(item.isAnimal and "pop_demand_h" or "pop_demand") }
+    local heads = { T("pop_prod"), T("pop_kind"), T("pop_amount"), T(item.isAnimal and "pop_demand_h" or (item.isSilage and "pop_demand_p" or "pop_demand")) }
     -- Tiererzeugnisse: Bedarf pro Stunde, sonst pro Jahr
     local env = g_currentMission ~= nil and g_currentMission.environment or nil
     local dDiv = item.isAnimal and (24 * 12 * ((env ~= nil and env.daysPerPeriod) or 1)) or 1
@@ -5748,9 +5756,13 @@ function FieldListHUD:drawPopup(L)
         setTextAlignment(RenderText.ALIGN_RIGHT)
         renderText(rx[3], ry + rowH / 2, 0.013, fmtLiters(r.level))
         setTextAlignment(RenderText.ALIGN_LEFT)
-        setTextColor(unpack(r.demand > 0 and self.colorWork or self.colorSub))
+        setTextColor(unpack(r.demand > 0 and self.colorWork or ((r.produce or 0) > 0 and self.colorArea or self.colorSub)))
         setTextAlignment(RenderText.ALIGN_RIGHT)
-        renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
+        if r.demand <= 0 and (r.produce or 0) > 0 then
+            renderText(rx[4], ry + rowH / 2, 0.013, "+" .. fmtLiters(r.produce)) -- Erzeugung pro Jahr (z. B. Fermenter)
+        else
+            renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
+        end
         setTextAlignment(RenderText.ALIGN_LEFT)
         if r.isInput then sumIn = sumIn + r.level else sumOther = sumOther + r.level end
     end

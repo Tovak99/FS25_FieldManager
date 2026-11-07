@@ -5032,14 +5032,15 @@ function FieldListHUD:collectFruitTotals()
     pcall(function()
         local mft = g_fruitTypeManager:getFruitTypeByName("MAIZE")
         local f = mft ~= nil and FieldListHUD.getChaffFactor(mft.index) or nil
-        local need = math.max(0, (silageInfo.need or 0) - (silageInfo.out or 0))
+        local need = math.max(0, silageInfo.need or 0)
+        local selfOut = math.max(0, silageInfo.out or 0)
         local ftl = g_fillTypeManager:getFillTypeByName("SILAGE")
         local probe = { isSilage = true, name = "SILAGE" }
         local stockL = self:getRowStock(probe) or 0
         if need <= 0 and stockL <= 0 and silSlot.now + silSlot.planned + silSlot.nextYear + silSlot.in2 <= 0 then return end
         local row = { name = "SILAGE", isSilage = true, title = T("silage_row"),
             iconFilename = ftl ~= nil and ftl.hudOverlayFilename or nil,
-            now = 0, planned = 0, nextYear = 0, in2 = 0, demand = need, fields = {} }
+            now = 0, planned = 0, nextYear = 0, in2 = 0, demand = need, selfProduced = selfOut, fields = {} }
         if f ~= nil then
             row.now = silSlot.now * f
             row.planned = silSlot.planned * f
@@ -5443,6 +5444,10 @@ function FieldListHUD:getStockShortages(item)
         (item.nextYear or 0) * cutsF,
         (item.in2 or 0) * cutsF,
     }
+    -- Silage, die eine Produktion selbst herstellt (Fermenter), deckt den Bedarf jedes Jahres mit
+    if item.selfProduced ~= nil and item.selfProduced > 0 then
+        for i = 1, 3 do ys[i] = ys[i] + item.selfProduced end
+    end
     -- Was schon in den Produktionen eingelagert ist, ist bereits geliefert: wird einmalig vom Bedarf des ersten Jahres abgezogen
     local inp = (not item.isAnimal) and (self:getRowInput(item) or 0) or 0
     local dems = { math.max(0, dem - inp), dem, dem }
@@ -5608,18 +5613,9 @@ function FieldListHUD:getItemSources(item)
                         demand = demand + input.amount * perYear
                     end
                 end
-                -- Silage, die eine Produktion selbst herstellt (Fermenter), wird in der Zeile vom Bedarf abgezogen:
-                -- im Fenster als negativer Wert zeigen, damit die Summe zur Zeile passt
-                if item.isSilage and perYear ~= nil then
-                    for _, o in pairs(prod.outputs or {}) do
-                        if o.type ~= nil and o.amount ~= nil and g_fillTypeManager:getFillTypeNameByIndex(o.type) == "SILAGE" then
-                            demand = demand - o.amount * perYear
-                        end
-                    end
-                end
             end
         end
-        if level > 0 or demand ~= 0 then
+        if level > 0 or demand > 0 then
             local role = T("pop_input")
             if isOut and isIn then role = T("pop_store")
             elseif isOut then role = T("pop_output") end
@@ -5754,11 +5750,7 @@ function FieldListHUD:drawPopup(L)
         setTextAlignment(RenderText.ALIGN_LEFT)
         setTextColor(unpack(r.demand > 0 and self.colorWork or self.colorSub))
         setTextAlignment(RenderText.ALIGN_RIGHT)
-        if r.demand < 0 then
-            renderText(rx[4], ry + rowH / 2, 0.013, "-" .. fmtLiters(-r.demand)) -- Eigenerzeugung (z. B. Fermenter)
-        else
-            renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
-        end
+        renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
         setTextAlignment(RenderText.ALIGN_LEFT)
         if r.isInput then sumIn = sumIn + r.level else sumOther = sumOther + r.level end
     end
@@ -6014,7 +6006,7 @@ function FieldListHUD:drawFruitPage(L)
         renderText(cols[4].x + 0.008, ry + rowH / 2, 0.013, fmt(dem / div))
         -- Differenz: Ertrag dieses Jahr minus Bedarf (Plus = Überschuss, Minus = es fehlt)
         if (dem > 0 or yearVal > 0) and (not isCut or item.cuts ~= nil) then
-            local diff = yearVal - dem
+            local diff = yearVal + (item.selfProduced or 0) - dem
             setTextColor(unpack(diff >= 0 and self.colorArea or { 1, 0.4, 0.4, 1 }))
             renderText(cols[5].x + 0.008, ry + rowH / 2, 0.013,
                 math.abs(diff) < 0.5 and "0" or ((diff >= 0 and "+" or "-") .. fmt(math.abs(diff) / div)))

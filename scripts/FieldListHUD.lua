@@ -30,11 +30,18 @@ local function loadEnglish()
     end
 end
 
+-- Texte werden pro Schlüssel zwischengespeichert (T wird beim Zeichnen tausendfach pro Bild aufgerufen);
+-- nur echte Treffer aus den Spieltexten, damit ein zu früher Aufruf nicht den englischen Ersatz festhält
+local textCache = {}
+local function readText(key)
+    return g_i18n:getText("fl_" .. key, FieldListHUD.modName)
+end
 local function T(key)
-    local ok, text = pcall(function()
-        return g_i18n:getText("fl_" .. key, FieldListHUD.modName)
-    end)
+    local cached = textCache[key]
+    if cached ~= nil then return cached end
+    local ok, text = pcall(readText, key)
     if ok and type(text) == "string" and text ~= "" and string.sub(text, 1, 8) ~= "Missing " then
+        textCache[key] = text
         return text
     end
     if enTexts == nil then pcall(loadEnglish) end
@@ -1262,13 +1269,6 @@ function FieldListHUD:getYieldPercent(entry, force)
         pct = pct + 2.5
     end
 
-    self.yieldLog = self.yieldLog or {}
-    local sig = string.format("%.1f lime=%s spray=%s plow=%s weed=%s/%s stubble=%s roller=%s", pct,
-        tostring(entry.lime), tostring(entry.spray), tostring(entry.plow), tostring(entry.weed),
-        tostring(entry.weedFactor), tostring(entry.stubble), tostring(entry.roller))
-    if self.yieldLog[entry.id] ~= sig then
-        self.yieldLog[entry.id] = sig
-    end
     return pct
 end
 
@@ -2037,6 +2037,10 @@ function FieldListHUD:getEntryByFruitName(name)
     if name == nil or name == "" then
         return nil
     end
+    -- Titel, Icon und Kategorie einer Frucht ändern sich nicht: einmal bauen (Aufrufer verändern den Eintrag nicht)
+    FieldListHUD.entryCache = FieldListHUD.entryCache or {}
+    local cached = FieldListHUD.entryCache[name]
+    if cached ~= nil then return cached end
     local ft = g_fruitTypeManager:getFruitTypeByName(name)
     if ft == nil then
         return nil
@@ -2047,11 +2051,13 @@ function FieldListHUD:getEntryByFruitName(name)
         local grass = g_fillTypeManager:getFillTypeByName("GRASS")
         icon = grass ~= nil and grass.hudOverlayFilename or nil
     end
-    return {
+    local res = {
         fruitTitle = (ftl ~= nil and ftl.title) or ft.name,
         iconFilename = icon,
         category = FieldListHUD.getCategory(ft.name),
     }
+    FieldListHUD.entryCache[name] = res
+    return res
 end
 
 function FieldListHUD:getNextFruitEntry(entry)
@@ -6546,6 +6552,18 @@ end
 
 -- Seite 7: tatsächlich geerntete Mengen nach Frucht, Details je Feld
 function FieldListHUD:getHarvestData(tab)
+    -- Wird jedes Bild gezeichnet: Ergebnis 0,3 s lang wiederverwenden (die Markierung "wird geerntet" hält 4 s)
+    local hc = self.hvCache
+    local tnow = g_time or 0
+    if hc ~= nil and hc.tab == tab and hc.fields == self.fields and tnow - hc.t < 300 then
+        return hc.list, hc.year
+    end
+    local list, year = self:buildHarvestData(tab)
+    self.hvCache = { tab = tab, t = tnow, fields = self.fields, list = list, year = year }
+    return list, year
+end
+
+function FieldListHUD:buildHarvestData(tab)
     local env = g_currentMission ~= nil and g_currentMission.environment or nil
     local year = ((env ~= nil and env.currentYear) or 1) - (tab - 1)
     local own = {}
@@ -8016,18 +8034,34 @@ function FieldListHUD.getFieldAtPos(x, z)
     end
     local fid = FieldListHUD.getFarmlandIdAt(x, z)
     if fid == nil then return nil end
-    local best, bestD
-    for _, field in pairs(fm:getFields()) do
-        if field.farmland ~= nil and field.farmland.id == fid then
-            local cx, cz
-            if field.getCenterOfFieldWorldPosition ~= nil then
-                cx, cz = field:getCenterOfFieldWorldPosition()
-            else
-                cx, cz = field.posX, field.posZ
+    -- Die Felder eines Farmlands (mit Mittelpunkt) werden nur einmal gesammelt; die Suche läuft bei jedem Arbeitsschritt
+    local byFarmland = FieldListHUD.farmlandFields
+    if byFarmland == nil then
+        byFarmland = {}
+        for _, field in pairs(fm:getFields()) do
+            local fl = field.farmland
+            if fl ~= nil and fl.id ~= nil then
+                local cx, cz
+                if field.getCenterOfFieldWorldPosition ~= nil then
+                    cx, cz = field:getCenterOfFieldWorldPosition()
+                else
+                    cx, cz = field.posX, field.posZ
+                end
+                local l = byFarmland[fl.id]
+                if l == nil then l = {}; byFarmland[fl.id] = l end
+                l[#l + 1] = { field = field, cx = cx, cz = cz }
             end
-            local d = cx ~= nil and ((cx - x) ^ 2 + (cz - z) ^ 2) or 1e18
-            if bestD == nil or d < bestD then best, bestD = field, d end
         end
+        if next(byFarmland) ~= nil then FieldListHUD.farmlandFields = byFarmland end -- erst merken, wenn die Felder da sind
+    end
+    local list = byFarmland[fid]
+    if list == nil then return nil end
+    if #list == 1 then return list[1].field end
+    local best, bestD
+    for i = 1, #list do
+        local f = list[i]
+        local d = f.cx ~= nil and ((f.cx - x) ^ 2 + (f.cz - z) ^ 2) or 1e18
+        if bestD == nil or d < bestD then best, bestD = f.field, d end
     end
     return best
 end
@@ -8197,18 +8231,29 @@ function FieldListHUD.getWindrowFruit(fillTypeIndex)
     return FieldListHUD.windrowMap[fillTypeIndex]
 end
 
+function FieldListHUD.afterTip(vehicle, delta, fillTypeIndex, sx, sz, ex, ez, dropped, ...)
+    -- nur wenn wirklich etwas abgelegt wurde (die meisten Aufrufe legen nichts ab)
+    if type(dropped) == "number" and dropped > 0 then
+        local ok, err = pcall(FieldListHUD.onTip, vehicle, delta, fillTypeIndex, sx, sz, ex, ez, dropped)
+        if not ok and FieldListHUD.cntErrLeft > 0 then
+            FieldListHUD.cntErrLeft = FieldListHUD.cntErrLeft - 1
+            print("[FieldManager] Schwad Fehler: " .. tostring(err))
+        end
+    end
+    return dropped, ...
+end
+
 if DensityMapHeightUtil ~= nil and DensityMapHeightUtil.tipToGroundAroundLine ~= nil and not DensityMapHeightUtil.fieldManagerTipHook then
     DensityMapHeightUtil.fieldManagerTipHook = true
     DensityMapHeightUtil.tipToGroundAroundLine = Utils.overwrittenFunction(DensityMapHeightUtil.tipToGroundAroundLine,
         function(vehicle, superFunc, delta, fillTypeIndex, sx, sy, sz, ex, ey, ez, ...)
-            local res = table.pack(superFunc(vehicle, delta, fillTypeIndex, sx, sy, sz, ex, ey, ez, ...))
-            local ok, err = pcall(FieldListHUD.onTip, vehicle, delta, fillTypeIndex, sx, sz, ex, ez, res[1])
-            if not ok and FieldListHUD.cntErrLeft > 0 then
-                FieldListHUD.cntErrLeft = FieldListHUD.cntErrLeft - 1
-                print("[FieldManager] Schwad Fehler: " .. tostring(err))
-            end
-            return table.unpack(res, 1, res.n)
+            return FieldListHUD.afterTip(vehicle, delta, fillTypeIndex, sx, sz, ex, ez, superFunc(vehicle, delta, fillTypeIndex, sx, sy, sz, ex, ey, ez, ...))
         end)
+end
+
+function FieldListHUD.afterDischarge(...)
+    FieldListHUD.isDischarging = false
+    return ...
 end
 
 -- Abkippen auf den Boden (Anhänger, Ladewagen, Schaufel) ist kein Mähen und wird nicht gezählt.
@@ -8217,10 +8262,20 @@ if Dischargeable ~= nil and Dischargeable.dischargeToGround ~= nil and not Disch
     Dischargeable.dischargeToGround = Utils.overwrittenFunction(Dischargeable.dischargeToGround,
         function(vehicle, superFunc, dischargeNode, emptyLiters)
             FieldListHUD.isDischarging = true
-            local res = table.pack(superFunc(vehicle, dischargeNode, emptyLiters))
-            FieldListHUD.isDischarging = false
-            return table.unpack(res, 1, res.n)
+            return FieldListHUD.afterDischarge(superFunc(vehicle, dischargeNode, emptyLiters))
         end)
+end
+
+function FieldListHUD.afterMowerArea(fruitIndex, sx, sz, wx, wz, hx, hz, area, total, ...)
+    FieldListHUD.inMower = false
+    if type(area) == "number" and area > 0 then
+        local sqm = FieldListHUD.pixelsToSqm(area, total, sx, sz, wx, wz, hx, hz)
+        FieldListHUD.safeAddArea(fruitIndex, sqm, 0.5 * (wx + hx), 0.5 * (wz + hz), false)
+        if not FieldListHUD.tipSeesMower then
+            FieldListHUD.safeCount(fruitIndex, sqm, wx, wz, hx, hz, true)
+        end
+    end
+    return area, total, ...
 end
 
 -- Mäher laufen nicht über cutFruitArea, sondern über updateMowerArea(Frucht, sx, sz, wx, wz, hx, hz, ...).
@@ -8228,19 +8283,9 @@ end
 if FSDensityMapUtil ~= nil and FSDensityMapUtil.updateMowerArea ~= nil then
     FSDensityMapUtil.updateMowerArea = Utils.overwrittenFunction(FSDensityMapUtil.updateMowerArea,
         function(fruitIndex, superFunc, sx, sz, wx, wz, hx, hz, ...)
-            -- alle Rückgabewerte unverändert durchreichen (auch mehr als vier)
+            -- Der Mäher fragt jeden Schritt alle Fruchtarten ab: ohne Tabelle arbeiten, Rückgabewerte unverändert durchreichen
             FieldListHUD.inMower = true
-            local res = table.pack(superFunc(fruitIndex, sx, sz, wx, wz, hx, hz, ...))
-            FieldListHUD.inMower = false
-            local area = res[1]
-            if type(area) == "number" and area > 0 then
-                local sqm = FieldListHUD.pixelsToSqm(area, res[2], sx, sz, wx, wz, hx, hz)
-                FieldListHUD.safeAddArea(fruitIndex, sqm, 0.5 * (wx + hx), 0.5 * (wz + hz), false)
-                if not FieldListHUD.tipSeesMower then
-                    FieldListHUD.safeCount(fruitIndex, sqm, wx, wz, hx, hz, true)
-                end
-            end
-            return table.unpack(res, 1, res.n)
+            return FieldListHUD.afterMowerArea(fruitIndex, sx, sz, wx, wz, hx, hz, superFunc(fruitIndex, sx, sz, wx, wz, hx, hz, ...))
         end)
 end
 
@@ -8401,8 +8446,20 @@ function FieldListHUD.addHarvestArea(fruitIndex, sqm, x, z, withOwn, ownOverride
     if not own and not sch then return end
     local t, fn = FieldListHUD.getHarvYearTable(x, z)
     if t == nil then return end
-    if withOwn and own then t["~" .. own] = (t["~" .. own] or 0) + sqm; FieldListHUD.markActive(fn, own) end
-    if sch and (not withOwn or sch ~= own) then t["~" .. sch] = (t["~" .. sch] or 0) + sqm; FieldListHUD.markActive(fn, sch) end
+    local ak = FieldListHUD.areaKeyCache
+    if ak == nil then ak = {}; FieldListHUD.areaKeyCache = ak end
+    if withOwn and own then
+        local k = ak[own]
+        if k == nil then k = "~" .. own; ak[own] = k end
+        t[k] = (t[k] or 0) + sqm
+        FieldListHUD.markActive(fn, own)
+    end
+    if sch and (not withOwn or sch ~= own) then
+        local k = ak[sch]
+        if k == nil then k = "~" .. sch; ak[sch] = k end
+        t[k] = (t[k] or 0) + sqm
+        FieldListHUD.markActive(fn, sch)
+    end
 end
 
 function FieldListHUD.safeAddArea(...)
@@ -8658,11 +8715,14 @@ FieldListHUD.hudEdit = false
 FieldListHUD.hudDrag = nil
 
 -- Maus für das HUD aktiv: eigene Taste (Alt+F) oder ein anderer Mod hat den Mauszeiger eingeschaltet
+local function readMouseCursor()
+    return g_inputBinding ~= nil and g_inputBinding:getShowMouseCursor() == true
+end
+
 function FieldListHUD:isHudMouseActive()
     if self.hudCursor then return true end
-    local shown = false
-    pcall(function() shown = g_inputBinding ~= nil and g_inputBinding:getShowMouseCursor() == true end)
-    return shown and not (g_gui ~= nil and g_gui:getIsGuiVisible())
+    local ok, shown = pcall(readMouseCursor)
+    return ok and shown == true and not (g_gui ~= nil and g_gui:getIsGuiVisible())
 end
 
 function FieldListHUD:setHudCursor(on)

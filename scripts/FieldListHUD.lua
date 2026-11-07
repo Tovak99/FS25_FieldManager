@@ -5055,6 +5055,12 @@ function FieldListHUD:collectFruitTotals()
                 table.insert(row.fields, c)
             end
         end
+        -- Silage, die eine Produktion selbst herstellt (Fermenter), zählt in jedem Jahr zum Ertrag der Zeile
+        if selfOut > 0 then
+            row.now = row.now + selfOut
+            row.nextYear = row.nextYear + selfOut
+            row.in2 = row.in2 + selfOut
+        end
         table.insert(list, row)
     end)
     return list
@@ -5444,10 +5450,6 @@ function FieldListHUD:getStockShortages(item)
         (item.nextYear or 0) * cutsF,
         (item.in2 or 0) * cutsF,
     }
-    -- Silage, die eine Produktion selbst herstellt (Fermenter), deckt den Bedarf jedes Jahres mit
-    if item.selfProduced ~= nil and item.selfProduced > 0 then
-        for i = 1, 3 do ys[i] = ys[i] + item.selfProduced end
-    end
     -- Was schon in den Produktionen eingelagert ist, ist bereits geliefert: wird einmalig vom Bedarf des ersten Jahres abgezogen
     local inp = (not item.isAnimal) and (self:getRowInput(item) or 0) or 0
     local dems = { math.max(0, dem - inp), dem, dem }
@@ -6018,7 +6020,7 @@ function FieldListHUD:drawFruitPage(L)
         renderText(cols[4].x + 0.008, ry + rowH / 2, 0.013, fmt(dem / div))
         -- Differenz: Ertrag dieses Jahr minus Bedarf (Plus = Überschuss, Minus = es fehlt)
         if (dem > 0 or yearVal > 0) and (not isCut or item.cuts ~= nil) then
-            local diff = yearVal + (item.selfProduced or 0) - dem
+            local diff = yearVal - dem
             setTextColor(unpack(diff >= 0 and self.colorArea or { 1, 0.4, 0.4, 1 }))
             renderText(cols[5].x + 0.008, ry + rowH / 2, 0.013,
                 math.abs(diff) < 0.5 and "0" or ((diff >= 0 and "+" or "-") .. fmt(math.abs(diff) / div)))

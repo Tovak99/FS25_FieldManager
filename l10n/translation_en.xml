@@ -65,6 +65,16 @@
         <text name="fl_wk_tab_next" text="Next month"/>
         <text name="fl_title_work_next" text="UPCOMING WORK NEXT MONTH"/>
         <text name="fl_wk_next_hint" text="Only certain work: sowing, harvest and postponed work"/>
+        <text name="fl_seed_sow" text="Seed drill"/>
+        <text name="fl_seed_plant" text="Precision planter"/>
+        <text name="fl_seed_either" text="Seed drill / planter"/>
+        <text name="fl_seed_small" text="Planter"/>
+        <text name="fl_seed_cane" text="Sugarcane planter"/>
+        <text name="fl_seed_sow_s" text="Drill"/>
+        <text name="fl_seed_plant_s" text="Planter"/>
+        <text name="fl_seed_either_s" text="Drill/Planter"/>
+        <text name="fl_seed_small_s" text="Planter"/>
+        <text name="fl_seed_cane_s" text="Planter"/>
         <text name="fl_wk_sum" text="TOTAL"/>
         <text name="fl_wk_fields" text="%d fields"/>
         <text name="fl_wk_sort_id" text="SORT: FIELD NO."/>

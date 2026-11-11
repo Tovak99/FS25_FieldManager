@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.6** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.7** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -35,6 +35,7 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 <img width="1480" height="892" alt="image" src="https://github.com/user-attachments/assets/0a480ee8-906c-4fa9-8aac-2b1a9ce70cf1" />
 
 - Reiter **Diesen Monat** / **Nächsten Monat**: die Vorschau zeigt nur sichere Arbeiten (Aussaat, Ernte, auf nächsten Monat verschobene Arbeiten)
+- Aussaat-Zelle zeigt unter der Frucht die Maschine: Säm. (Sämaschine), Einzel (Einzelkorn), Pflanz (Pflanzmaschine), Säm./Einzel bei Ackerbohnen, Ackererbsen, Zwiebeln; aus den Fruchtkategorien des Spiels gelesen, nicht im HUD
 - Zwischenfrucht (z. B. Ölrettich) voll ausgewachsen: Arbeit „Grubbern", ebenfalls verschiebbar; Düngen auf leerem Feld nur einmal, sonst erst nach einer Wachstumsstufe (Gras: nach dem Monatswechsel)
 
 ### Seite 3: Fruchtfolge-Planung

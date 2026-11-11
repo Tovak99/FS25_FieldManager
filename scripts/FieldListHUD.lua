@@ -714,6 +714,38 @@ function FieldListHUD:buildEntry(field, light)
     return entry
 end
 
+-- Welche Maschine sät/pflanzt die Frucht? Aus den Fruchtkategorien des Spiels (Karten/Mods eingeschlossen).
+-- Rückgabe: Text (z. B. "Einzelkorn") oder nil, wenn unbekannt
+FieldListHUD.SEED_CATS = { SOWINGMACHINE = "sow", PLANTER = "plant", PLANTER_SMALL = "small", SUGARCANE_PLANTER = "cane" }
+function FieldListHUD:getSeederText(fruitName, short)
+    local fm = g_fruitTypeManager
+    if fm == nil or fruitName == nil then return nil end
+    if self.seederMap == nil then
+        local map = {}
+        pcall(function()
+            for ci, list in pairs(fm.categoryIndexToFruitTypeIndex or {}) do
+                local kind = FieldListHUD.SEED_CATS[(fm.indexToCategory or {})[ci] or ""]
+                if kind ~= nil then
+                    for _, fi in pairs(list) do
+                        map[fi] = map[fi] or {}
+                        map[fi][kind] = true
+                    end
+                end
+            end
+        end)
+        self.seederMap = map
+    end
+    local ft = fm:getFruitTypeByName(string.upper(fruitName))
+    local k = ft ~= nil and self.seederMap[ft.index] or nil
+    if k == nil then return nil end
+    if k.sow and k.plant then return T("seed_either" .. (short and "_s" or "")) end
+    if k.sow then return T("seed_sow" .. (short and "_s" or "")) end
+    if k.plant then return T("seed_plant" .. (short and "_s" or "")) end
+    if k.small then return T("seed_small" .. (short and "_s" or "")) end
+    if k.cane then return T("seed_cane" .. (short and "_s" or "")) end
+    return nil
+end
+
 -- Baut die Liste der Felder auf, die zum eigenen Hof gehören
 function FieldListHUD:refreshFields()
     local list = {}
@@ -1403,7 +1435,7 @@ function FieldListHUD:getWorkItemsAll(entry)
                 or (gs ~= nil and not entry.harvestReady and not (gs >= 1 and (entry.maxGrowth == nil or gs <= entry.maxGrowth)))
             if empty and self:canSowNow("OILSEEDRADISH") then
                 local ce = self:getEntryByFruitName("OILSEEDRADISH")
-                table.insert(items, { prio = 6, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short"),
+                table.insert(items, { prio = 6, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short"),
                     hud = string.format(T("work_cc_hud"), (ce ~= nil and ce.fruitTitle) or "Ölrettich") })
             end
         end
@@ -1423,7 +1455,7 @@ function FieldListHUD:getWorkItemsAll(entry)
     end
     if sowDue then
         local ne = self:getNextFruitEntry(entry)
-        table.insert(items, { prio = 7, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?"), short = T("work_sow_short"),
+        table.insert(items, { prio = 7, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", cell2 = self:getSeederText(rcSow.next, true), text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") .. (self:getSeederText(rcSow.next) ~= nil and (" – " .. self:getSeederText(rcSow.next)) or ""), short = T("work_sow_short"),
             hud = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") })
     end
     if self:needsRolling(entry) then
@@ -3621,7 +3653,7 @@ function FieldListHUD:getNextMonthItems(entry)
         if ses ~= nil and not self:canSowNow(rc.next) and ses.plant[nxt] == true then
             local ne = self:getNextFruitEntry(entry)
             local title = (ne ~= nil and ne.fruitTitle) or "?"
-            items[#items + 1] = { prio = 7, kind = "sow", preview = true, cell = title, text = string.format(T("work_sow"), title) }
+            items[#items + 1] = { prio = 7, kind = "sow", preview = true, cell = title, cell2 = self:getSeederText(rc.next, true), text = string.format(T("work_sow"), title) }
         end
     end
     -- Geplante Zwischenfrucht
@@ -3634,7 +3666,7 @@ function FieldListHUD:getNextMonthItems(entry)
         if empty and ses ~= nil and not self:canSowNow("OILSEEDRADISH") and ses.plant[nxt] == true then
             local ce = self:getEntryByFruitName("OILSEEDRADISH")
             local title = (ce ~= nil and ce.fruitTitle) or "Ölrettich"
-            items[#items + 1] = { prio = 6, kind = "cc", preview = true, cell = title, text = string.format(T("work_cc"), title) }
+            items[#items + 1] = { prio = 6, kind = "cc", preview = true, cell = title, cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), title) }
         end
     end
     -- Ernte: stehende Frucht wird nächsten Monat erntereif
@@ -4462,6 +4494,11 @@ function FieldListHUD:simHarvestAbs(ft, ses, fromPeriod, state, checkNow)
     minS = FieldListHUD.harvestMinState(ft)
     local s = state
     if checkNow and s >= minS and s <= maxS and ses.harvest[fromPeriod] then return fromPeriod end
+    -- Stehende Frucht: der Wachstumsschritt des laufenden Monats steht noch aus (Anzeige zeigt den Stand vor dem Schritt)
+    if checkNow then
+        local m0 = ses.map[fromPeriod]
+        if m0 ~= nil and m0[s] ~= nil then s = m0[s] end
+    end
     for k = 1, 36 do
         local qa = fromPeriod + k
         local p = ((qa - 1) % 12) + 1

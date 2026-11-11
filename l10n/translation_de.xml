@@ -65,6 +65,16 @@
         <text name="fl_wk_tab_next" text="Nächsten Monat"/>
         <text name="fl_title_work_next" text="ANSTEHENDE ARBEITEN IM NÄCHSTEN MONAT"/>
         <text name="fl_wk_next_hint" text="Nur sichere Arbeiten: Aussaat, Ernte und zurückgestellte Arbeiten"/>
+        <text name="fl_seed_sow" text="Sämaschine"/>
+        <text name="fl_seed_plant" text="Einzelkorn"/>
+        <text name="fl_seed_either" text="Sämaschine / Einzelkorn"/>
+        <text name="fl_seed_small" text="Pflanzmaschine"/>
+        <text name="fl_seed_cane" text="Zuckerrohr-Pflanzer"/>
+        <text name="fl_seed_sow_s" text="Säm."/>
+        <text name="fl_seed_plant_s" text="Einzel"/>
+        <text name="fl_seed_either_s" text="Säm./Einzel"/>
+        <text name="fl_seed_small_s" text="Pflanz"/>
+        <text name="fl_seed_cane_s" text="Pflanz"/>
         <text name="fl_wk_sum" text="SUMME"/>
         <text name="fl_wk_fields" text="%d Felder"/>
         <text name="fl_wk_sort_id" text="SORT: FELDNUMMER"/>

@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.5** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.6** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -34,6 +34,9 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 
 <img width="1480" height="892" alt="image" src="https://github.com/user-attachments/assets/0a480ee8-906c-4fa9-8aac-2b1a9ce70cf1" />
 
+- Reiter **Diesen Monat** / **Nächsten Monat**: die Vorschau zeigt nur sichere Arbeiten (Aussaat, Ernte, auf nächsten Monat verschobene Arbeiten)
+- Zwischenfrucht (z. B. Ölrettich) voll ausgewachsen: Arbeit „Grubbern", ebenfalls verschiebbar; Düngen auf leerem Feld nur einmal, sonst erst nach einer Wachstumsstufe (Gras: nach dem Monatswechsel)
+
 ### Seite 3: Fruchtfolge-Planung
 - Feldtabelle mit Ertrag, Spalte PROD. (grün/gelb/grau: Feld wird für den Produktionsbedarf gebraucht, teilweise, nicht nötig), Folgefrucht, aktueller Frucht und Vorfrüchten
 - Fußzeile mit Details je Zeile: Deckung des Bedarfs (Ernte dieses Jahr, nächstes Jahr, in 2 Jahren); bei Früchten ohne Produktionsbedarf die Ertragsprognose mit Summe und Anteil des Feldes
@@ -64,7 +67,7 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 - Reiter Dieses Jahr, Letztes Jahr, Vor 2 Jahren; links die Früchte mit Menge, rechts die Felder der gewählten Frucht mit Fläche, Menge, Anteil in % und Ertrag je Hektar plus Summenzeile
 - Ertrag je Hektar wird aus der tatsächlich geernteten Fläche berechnet; die Frucht und das Feld, die gerade geerntet werden, sind grün markiert
 - Mais: Körner und Häckselgut stehen in getrennten Zeilen
-- Gezählt wird erst ab der Installation des Mods; im Mehrspielerspiel zählt der Server, die Clients bekommen die Werte per Abgleich
+- Gezählt wird nur auf Feldern mit Besitzer (nicht vor dem Kauf) und erst ab der Installation des Mods; im Mehrspielerspiel zählt der Server, die Clients bekommen die Werte per Abgleich
 
 ### Seite 6: Erntekalender (saisonale Produktion)
 - Eine Zeile je Frucht mit Symbol, Name und Erntezeitraum als Balken, Monate von März bis Februar mit den Jahreszeiten-Symbolen des Spiels

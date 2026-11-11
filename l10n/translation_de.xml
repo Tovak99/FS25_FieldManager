@@ -61,6 +61,10 @@
         <text name="fl_wk_col_cc" text="ZWISCHENFR."/>
         <text name="fl_wk_col_sow" text="AUSSAAT"/>
         <text name="fl_wk_col_roll" text="WALZEN"/>
+        <text name="fl_wk_tab_now" text="Diesen Monat"/>
+        <text name="fl_wk_tab_next" text="Nächsten Monat"/>
+        <text name="fl_title_work_next" text="ANSTEHENDE ARBEITEN IM NÄCHSTEN MONAT"/>
+        <text name="fl_wk_next_hint" text="Nur sichere Arbeiten: Aussaat, Ernte und zurückgestellte Arbeiten"/>
         <text name="fl_wk_sum" text="SUMME"/>
         <text name="fl_wk_fields" text="%d Felder"/>
         <text name="fl_wk_sort_id" text="SORT: FELDNUMMER"/>
@@ -86,6 +90,9 @@
         <text name="fl_confirm_accept2" text="Die Folgefrüchte bleiben stehen und werden bei einer erneuten Planung nicht mehr überschrieben."/>
         <text name="fl_work_cc" text="Zwischenfrucht säen: %s"/>
         <text name="fl_work_cc_short" text="Zwischenfrucht säen"/>
+        <text name="fl_work_cc_cult" text="Zwischenfrucht grubbern"/>
+        <text name="fl_work_cc_hud" text="Aussaat: %s"/>
+        <text name="fl_work_cc_cult_cell" text="Grubbern"/>
         <text name="fl_work_sow_short" text="Aussaat nötig"/>
         <text name="fl_tip_title" text="ANSTEHENDE ARBEITEN"/>
         <text name="fl_tip_none" text="Keine Arbeiten anstehend"/>

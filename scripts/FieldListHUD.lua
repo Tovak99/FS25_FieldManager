@@ -88,12 +88,23 @@ FieldListHUD.CATEGORIES = {
     POPLAR = T("cat_tree"),
 }
 
+-- Hülsenfrüchte, die nicht in den Tabellen stehen (Ackerbohnen, Ackererbsen, Lupinen ... auch aus Mods), erkennt man am Namen
+function FieldListHUD.isLegumeName(n)
+    return n ~= nil and (string.find(n, "PEA", 1, true) ~= nil or string.find(n, "BEAN", 1, true) ~= nil
+        or string.find(n, "LENTIL", 1, true) ~= nil or string.find(n, "LUPIN", 1, true) ~= nil
+        or string.find(n, "VETCH", 1, true) ~= nil)
+end
+
 -- Kategorie zu einem Fruchtnamen; unbekannte Fruchttypen (z. B. aus Mods) bekommen "Sonstige"
 function FieldListHUD.getCategory(name)
     if name == nil or name == "" then
         return nil
     end
-    return FieldListHUD.CATEGORIES[string.upper(name)] or T("cat_other")
+    local n = string.upper(name)
+    if FieldListHUD.CATEGORIES[n] == nil and FieldListHUD.isLegumeName(n) then
+        return T("cat_legume")
+    end
+    return FieldListHUD.CATEGORIES[n] or T("cat_other")
 end
 
 -- Einmal beim Laden des Skripts: Zeichen-Hook ins ESC-Menü.
@@ -615,10 +626,6 @@ end
 FieldListHUD.weedSeen = {}
 function FieldListHUD.weedSize(w)
     if w == nil or w <= 0 then return 0 end
-    if FieldListHUD.weedSeen[w] == nil then
-        FieldListHUD.weedSeen[w] = true
-        print(string.format("FieldListHUD: Unkrautstufe (Rohwert) %s", tostring(w)))
-    end
     return math.min(3, math.floor(w))
 end
 
@@ -768,6 +775,12 @@ function FieldListHUD.sameFruit(a, b)
     a = FieldListHUD.FRUIT_ALIAS[a] or a
     b = FieldListHUD.FRUIT_ALIAS[b] or b
     if a == b then
+        return true
+    end
+    -- Erbsen und Ackererbsen sind Unterarten derselben Frucht (Name enthält PEA, aber nicht PEANUT)
+    local function isPea(n) return string.find(n, "PEA", 1, true) ~= nil and string.find(n, "PEANUT", 1, true) == nil
+        and string.find(n, "GREEN", 1, true) == nil end
+    if isPea(string.upper(a)) and isPea(string.upper(b)) then
         return true
     end
     local fa = g_fruitTypeManager:getFruitTypeByName(a)
@@ -1390,9 +1403,16 @@ function FieldListHUD:getWorkItemsAll(entry)
                 or (gs ~= nil and not entry.harvestReady and not (gs >= 1 and (entry.maxGrowth == nil or gs <= entry.maxGrowth)))
             if empty and self:canSowNow("OILSEEDRADISH") then
                 local ce = self:getEntryByFruitName("OILSEEDRADISH")
-                table.insert(items, { prio = 6, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short") })
+                table.insert(items, { prio = 6, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short"),
+                    hud = string.format(T("work_cc_hud"), (ce ~= nil and ce.fruitTitle) or "Ölrettich") })
             end
         end
+    end
+    -- Zwischenfrucht (Ölrettich) voll ausgewachsen (z. B. 2/2): Grubbern steht an, bis sie untergearbeitet ist.
+    -- Die Arbeit lässt sich wie die anderen in den nächsten Monat schieben (Art "cc").
+    if FieldListHUD.isCatchCrop(string.upper(entry.fruitName or "")) and entry.growthState ~= nil
+        and entry.maxGrowth ~= nil and entry.growthState >= 1 and entry.growthState == entry.maxGrowth then
+        table.insert(items, { prio = 6, kind = "cc", cell = T("work_cc_cult_cell"), text = T("work_cc_cult"), short = T("work_cc_cult") })
     end
     local rcSow = self.store ~= nil and self.store[entry.id] or nil
     local sowDue = self:needsSowing(entry) and self:canSowNow(rcSow.next)
@@ -1403,7 +1423,8 @@ function FieldListHUD:getWorkItemsAll(entry)
     end
     if sowDue then
         local ne = self:getNextFruitEntry(entry)
-        table.insert(items, { prio = 7, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?"), short = T("work_sow_short") })
+        table.insert(items, { prio = 7, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?"), short = T("work_sow_short"),
+            hud = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") })
     end
     if self:needsRolling(entry) then
         table.insert(items, { prio = 8, kind = "roll", text = T("status_mustroll"), short = T("work_roll_short") })
@@ -2013,6 +2034,27 @@ function FieldListHUD:getFruitOptions()
             end
         end
     end
+    -- Zusätzlich alle säbaren Fruchtarten des Spiels (z. B. Ackerbohnen, Erbsen), die der FieldManager
+    -- nicht in availableFruitTypeIndices führt; Voraussetzung: Saat-/Erntefenster ist lesbar.
+    local titles = {}
+    for _, o in ipairs(list) do titles[o.title] = true end
+    local all = g_fruitTypeManager ~= nil and g_fruitTypeManager:getFruitTypes() or nil
+    for _, ft in pairs(all or {}) do
+        local un = ft ~= nil and string.upper(ft.name or "") or ""
+        -- nur Hülsenfrüchte (Ackerbohnen, Ackererbsen ...) und Luzerne: Reis, Zuckerrohr, Pappel, Lavendel, Gras u. a. lässt die Karte bewusst weg
+        if ft ~= nil and ft.allowsSeeding and not seen[ft.index] and not FieldListHUD.isCatchCrop(ft.name)
+            and (FieldListHUD.isLegumeName(un) or un == "ALFALFA") then
+            local title = (ft.fillType ~= nil and ft.fillType.title) or ft.name
+            local okSeason, season = pcall(self.parseSeason, self, ft)
+            if okSeason and season ~= nil then
+                seen[ft.index] = true
+                -- Gleicher Titel bei verschiedenen Fruchtarten (z. B. zwei "Erbsen"): Spielname dazuschreiben
+                if titles[title] then title = title .. " (" .. tostring(ft.name) .. ")" end
+                titles[title] = true
+                table.insert(list, { index = ft.index, name = string.upper(ft.name or ""), title = title })
+            end
+        end
+    end
     table.sort(list, function(a, b) return a.title < b.title end)
     -- Mais: zwei Einträge, Körner oder Silage (Häckselgut)
     for i, o in ipairs(list) do
@@ -2025,8 +2067,6 @@ function FieldListHUD:getFruitOptions()
         end
     end
     table.insert(list, 1, { index = nil, title = T("no_selection") })
-    local nm = {}
-    for i, o in ipairs(list) do nm[i] = tostring(o.name) .. "/" .. tostring(o.title) end
     self.fruitOptions = list
     return list
 end
@@ -2458,7 +2498,7 @@ function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
         local frac = (((day - 1) % dpp) + ((env.dayTime or 0) / 86400000)) / dpp
         frac = math.max(0, math.min(1, frac))
         local sw = g_screenWidth or 1920
-        local lx0 = math.floor((gx + (curM - 1 + frac) * cellW) * sw + 0.5) / sw
+        local lx0 = math.floor((gx + (((curM - 3) % 12) + frac) * cellW) * sw + 0.5) / sw
         local dy = y + 0.002
         while dy < y + total - 0.004 do
             self:drawRect(lx0, dy, 1.5 / sw, 0.004, { 1, 1, 1, 0.9 })
@@ -2468,9 +2508,11 @@ function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
 
     setTextAlignment(RenderText.ALIGN_CENTER)
     setTextBold(true)
-    for m = 1, 12 do
+    -- Spalten wie im Spielkalender: März bis Februar
+    for c = 1, 12 do
+        local m = (c + 1) % 12 + 1
         setTextColor(unpack(self.colorSub))
-        renderText(gx + (m - 0.5) * cellW, y + total - 0.003, 0.010, self.MONTHS[m])
+        renderText(gx + (c - 0.5) * cellW, y + total - 0.003, 0.010, self.MONTHS[m])
     end
     setTextAlignment(RenderText.ALIGN_LEFT)
     setTextColor(unpack(self.colorTitle))
@@ -2490,8 +2532,9 @@ function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
     end
     setTextBold(false)
 
-    for m = 1, 12 do
-        local cx = gx + (m - 1) * cellW
+    for c = 1, 12 do
+        local m = (c + 1) % 12 + 1
+        local cx = gx + (c - 1) * cellW
         -- Trennlinie pixelgenau (sonst verschwindet sie bei manchen Positionen)
         local sw = g_screenWidth or 1920
         local lineX = math.floor(cx * sw + 0.5) / sw
@@ -3556,15 +3599,71 @@ FieldListHUD.WORK_COLS = {
     { kind = "roll",    key = "wk_col_roll",    f = 0.085 },
 }
 
+-- Vorschau "Nächster Monat": nur sichere Arbeiten – zurückgestellte, Aussaat (Saatfenster öffnet erst nächsten Monat)
+-- und Ernte (stehende Frucht ist laut Wachstumstabelle nächsten Monat erntereif). Keine Prognose für Pflügen/Steine/Kalk/Düngen/Unkraut.
+function FieldListHUD:getNextMonthItems(entry)
+    local items, have = {}, {}
+    if entry.unused then return items end
+    for _, it in ipairs(self:getWorkItems(entry, true)) do
+        if it.postponed then
+            items[#items + 1] = it
+            have[it.kind] = true
+        end
+    end
+    local cur = self:getCurrentPeriod()
+    if cur == nil then return items end
+    local nxt = cur % 12 + 1
+    local rc = self.store ~= nil and self.store[entry.id] or nil
+    -- Aussaat der Folgefrucht
+    if rc ~= nil and rc.next ~= nil and not rc.manual and not have.sow and self:needsSowing(entry) then
+        local ft = g_fruitTypeManager:getFruitTypeByName(string.upper(rc.next))
+        local ses = ft ~= nil and self:parseSeason(ft) or nil
+        if ses ~= nil and not self:canSowNow(rc.next) and ses.plant[nxt] == true then
+            local ne = self:getNextFruitEntry(entry)
+            local title = (ne ~= nil and ne.fruitTitle) or "?"
+            items[#items + 1] = { prio = 7, kind = "sow", preview = true, cell = title, text = string.format(T("work_sow"), title) }
+        end
+    end
+    -- Geplante Zwischenfrucht
+    if rc ~= nil and rc.ccPlanned and not rc.ccPending and not have.cc then
+        local gs = entry.growthState
+        local empty = entry.fruitTitle == nil
+            or (gs ~= nil and not entry.harvestReady and not (gs >= 1 and (entry.maxGrowth == nil or gs <= entry.maxGrowth)))
+        local ft = g_fruitTypeManager:getFruitTypeByName("OILSEEDRADISH")
+        local ses = ft ~= nil and self:parseSeason(ft) or nil
+        if empty and ses ~= nil and not self:canSowNow("OILSEEDRADISH") and ses.plant[nxt] == true then
+            local ce = self:getEntryByFruitName("OILSEEDRADISH")
+            local title = (ce ~= nil and ce.fruitTitle) or "Ölrettich"
+            items[#items + 1] = { prio = 6, kind = "cc", preview = true, cell = title, text = string.format(T("work_cc"), title) }
+        end
+    end
+    -- Ernte: stehende Frucht wird nächsten Monat erntereif
+    if entry.fruitIndex ~= nil and entry.growthState ~= nil and not entry.harvestReady and not have.harvest
+        and not FieldListHUD.isCatchCrop(string.upper(entry.fruitName or ""))
+        and not FieldListHUD.MULTI_CUT[string.upper(entry.fruitName or "")]
+        and entry.growthState >= 1 and (entry.maxGrowth == nil or entry.growthState <= entry.maxGrowth) then
+        local ft = g_fruitTypeManager:getFruitTypeByIndex(entry.fruitIndex)
+        local ses = ft ~= nil and self:parseSeason(ft) or nil
+        if ses ~= nil and ses.map ~= nil then
+            local q = self:simHarvestAbs(ft, ses, cur, entry.growthState, false)
+            if q == cur + 1 then
+                items[#items + 1] = { prio = 1, kind = "harvest", preview = true, cell = FieldListHUD.periodMonth(nxt), text = T("ground_ready") }
+            end
+        end
+    end
+    return items
+end
+
 function FieldListHUD:getWorkRows()
     local c = self.wkCache
     local now = g_time or 0
-    if c ~= nil and not self.wkDirty and c.mode == (self.wkFilter or 4) and c.sort == (tostring(self.workCol) .. tostring(self.workDir)) and (now - c.t) < 1000 then
+    local nx = self.wkNext == true
+    if c ~= nil and not self.wkDirty and c.nx == nx and c.mode == (self.wkFilter or 4) and c.sort == (tostring(self.workCol) .. tostring(self.workDir)) and (now - c.t) < 1000 then
         return c.rows
     end
     self.wkDirty = false
     local rows = self:buildWorkRows()
-    self.wkCache = { rows = rows, t = now, mode = (self.wkFilter or 4), sort = (tostring(self.workCol) .. tostring(self.workDir)) }
+    self.wkCache = { rows = rows, t = now, nx = nx, mode = (self.wkFilter or 4), sort = (tostring(self.workCol) .. tostring(self.workDir)) }
     return rows
 end
 
@@ -3573,22 +3672,23 @@ function FieldListHUD:buildWorkRows()
     -- Arbeiten-Tabelle: im Filter "Arbeiten" auch Felder, auf denen nur zurückgestellte Arbeiten übrig sind
     -- Eigener Filter dieser Seite (unabhängig von Seite 1 und 3)
     local wkMode = self.wkFilter or 4
+    local nx = self.wkNext == true
     local src = {}
     for _, e in ipairs(self.fields or {}) do
         local ok
         if wkMode == 4 then
-            ok = not e.unused and #self:getWorkItems(e, true) > 0
+            ok = not e.unused and #(nx and self:getNextMonthItems(e) or self:getWorkItems(e, true)) > 0
         else
             ok = self:matchesFilter(e, wkMode)
         end
         if ok then src[#src + 1] = e end
     end
     for _, e in ipairs(src) do
-        local items = self:getWorkItems(e, true)
+        local items = nx and self:getNextMonthItems(e) or self:getWorkItems(e, true)
         local byKind, minPrio, n = {}, 99, 0
         for _, it in ipairs(items) do
             byKind[it.kind or "?"] = it
-            if not it.postponed then
+            if nx or not it.postponed then
                 n = n + 1
                 if (it.prio or 99) < minPrio then minPrio = it.prio or 99 end
             end
@@ -3632,13 +3732,40 @@ function FieldListHUD:drawWorkPage(L)
     do
         -- Titel ist lang: Schrift verkleinern, damit er nicht in die Seitenpfeile rechts läuft
         local tsize = 0.036
-        local tw = getTextWidth(tsize, T("title_work"))
+        local nxTitle = self.wkNext == true and T("title_work_next") or T("title_work")
+        local tw = getTextWidth(tsize, nxTitle)
         local maxW = w0 - 0.30
         if tw > maxW and tw > 0 then tsize = tsize * maxW / tw end
-        renderText(x0, top, tsize, T("title_work"))
+        renderText(x0, top, tsize, nxTitle)
     end
     setTextBold(false)
     top = top - 0.060
+
+    -- Reiter: Diesen Monat / Nächsten Monat (Vorschau)
+    local nx = self.wkNext == true
+    self.wkTabs = {}
+    do
+        local tw, th, tg = 0.13, 0.026, 0.006
+        local ty = top - th + 0.008
+        for i, tb in ipairs({ { next = false, label = T("wk_tab_now") }, { next = true, label = T("wk_tab_next") } }) do
+            local b = { x = x0 + (i - 1) * (tw + tg), y = ty, w = tw, h = th, next = tb.next }
+            self.wkTabs[#self.wkTabs + 1] = b
+            local active = (nx == tb.next)
+            self:drawFrame(b.x, b.y, b.w, b.h, active and self.colorTileSelected or self.colorTile, active and self.colorArea or self.colorBorder)
+            local size = 0.011
+            local lw = getTextWidth(size, tb.label)
+            if lw > b.w * 0.92 then size = size * b.w * 0.92 / lw end
+            setTextAlignment(RenderText.ALIGN_CENTER)
+            setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_MIDDLE)
+            setTextBold(true)
+            setTextColor(unpack(active and self.colorTitle or self.colorSub))
+            renderText(b.x + b.w / 2, b.y + b.h / 2, size, tb.label)
+            setTextBold(false)
+        end
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_TOP)
+        setTextAlignment(RenderText.ALIGN_LEFT)
+        top = top - th - 0.002
+    end
 
     -- Filter unten links, Sortierung unten rechts
     local filterH = 0.026
@@ -3764,8 +3891,9 @@ function FieldListHUD:drawWorkPage(L)
                 local it = rd.kinds[c.kind]
                 if it ~= nil then
                     local col = c.green and self.colorArea or self.colorWork
-                    if it.postponed then col = { 0.45, 0.45, 0.45, 1 } end
-                    if it.kind ~= "harvest" then
+                    local grey = it.postponed and not nx
+                    if grey then col = { 0.45, 0.45, 0.45, 1 } end
+                    if it.kind ~= "harvest" and not nx then
                         local cell = { x = c.x, y = ry, w = c.w, h = rowH, id = e.id, kind = it.kind, postponed = it.postponed }
                         table.insert(t.cells, cell)
                         local mx, my = self.mouseX, self.mouseY
@@ -3781,7 +3909,7 @@ function FieldListHUD:drawWorkPage(L)
                         local tw = getTextWidth(size, it.cell)
                         if tw > maxW then size = size * maxW / tw end
                         setTextAlignment(RenderText.ALIGN_LEFT)
-                        setTextColor(unpack(it.postponed and self.colorSub or self.colorTitle))
+                        setTextColor(unpack(grey and self.colorSub or self.colorTitle))
                         local cy = ry + rowH / 2
                         if it.cell2 ~= nil then cy = cy + 0.0065 end
                         renderText(dx + dotW + 0.006, cy, size, it.cell)
@@ -3812,6 +3940,7 @@ function FieldListHUD:drawWorkPage(L)
     -- Hinweis unten rechts neben den Filterknöpfen (statt Tooltip)
     do
         local hint = hoverPost == 2 and (T("wk_post_on") .. ". " .. T("wk_post_back")) or T("wk_post_hint")
+        if nx then hint = T("wk_next_hint") end
         local hx0 = x0 + #FieldListHUD.FILTERS * (bw + bgap) + 0.010
         local maxW = x0 + w0 - hx0
         local size = 0.0115
@@ -3852,7 +3981,7 @@ function FieldListHUD:drawWorkPage(L)
     local sums = {}
     for _, rd in ipairs(rowsData) do
         for kind, it in pairs(rd.kinds) do
-            if not it.postponed then
+            if nx or not it.postponed then
                 local s2 = sums[kind] or { ha = 0, n = 0 }
                 s2.ha = s2.ha + (rd.e.area or 0)
                 s2.n = s2.n + 1
@@ -7185,6 +7314,14 @@ function FieldListHUD:onMouse(posX, posY, isDown, isUp, button)
             return true
         end
         if isDown and button == left then
+            for _, b in ipairs(self.wkTabs or {}) do
+                if inRect(b, posX, posY) then
+                    self.wkNext = b.next
+                    self.wkDirty = true
+                    t.offset = 0
+                    return true
+                end
+            end
             for _, b in ipairs(self.filterBtns4 or {}) do
                 if inRect(b, posX, posY) then
                     self.wkFilter = b.mode
@@ -7418,7 +7555,9 @@ function FieldListHUD.getGroup(name)
     if name == nil or name == "" then
         return nil
     end
-    return FieldListHUD.GROUP[string.upper(name)] or "UN"
+    local n = string.upper(name)
+    if FieldListHUD.GROUP[n] == nil and FieldListHUD.isLegumeName(n) then return "KL" end
+    return FieldListHUD.GROUP[n] or "UN"
 end
 
 local function matrixValue(gN, gC)
@@ -8348,6 +8487,14 @@ function FieldListHUD.parseHarv(str)
     return h
 end
 
+-- Nur Ernten auf Feldern zählen, die einem Hof gehören (nicht Land ohne Besitzer, z. B. vor dem Kauf)
+function FieldListHUD.isOwnedField(field)
+    local fl = field ~= nil and field.farmland or nil
+    if fl == nil or g_farmlandManager == nil then return false end
+    local owner = g_farmlandManager:getFarmlandOwner(fl.id)
+    return owner ~= nil and owner ~= (FarmlandManager ~= nil and FarmlandManager.NO_OWNER_FARM_ID or 0)
+end
+
 -- Trägt Liter einer Frucht auf dem Feld an der Position x/z für das laufende Jahr ein.
 function FieldListHUD.addHarvestLiters(fruitIndex, liters, x, z, key)
     local function dlog() end
@@ -8367,6 +8514,7 @@ function FieldListHUD.addHarvestLiters(fruitIndex, liters, x, z, key)
         dlog("abgebrochen: kein Feld an der Position oder kein Jahr (" .. tostring(key or ft.name) .. ")")
         return
     end
+    if not FieldListHUD.isOwnedField(field) then return end
     local fn = FieldListHUD:getFieldNumber(field)
     local rec = FieldListHUD:getRecord(fn)
     local year = env.currentYear
@@ -8404,6 +8552,7 @@ function FieldListHUD.getHarvYearTable(x, z)
     local field = FieldListHUD.getFieldAtPos(x, z)
     local env = m.environment
     if field == nil or env == nil or env.currentYear == nil then return nil end
+    if not FieldListHUD.isOwnedField(field) then return nil end
     local rec = FieldListHUD:getRecord(FieldListHUD:getFieldNumber(field))
     local year = env.currentYear
     rec.harv = rec.harv or {}
@@ -8839,6 +8988,8 @@ function FieldListHUD:getHudRows()
                     if (it.prio or 99) < (best.prio or 99) then best = it end
                 end
                 local txt = best.short or best.text or "?"
+                -- Aussaat im HUD mit Fruchtname ("Aussaat: Weizen"), Zwischenfrucht kurz ("Ölrettich säen")
+                if best.hud ~= nil then txt = best.hud end
                 if #items > 1 then txt = txt .. " (+)" end
                 table.insert(rows, { id = e.id, text = txt, harvest = best.harvest == true, prio = best.prio or 99 })
             end

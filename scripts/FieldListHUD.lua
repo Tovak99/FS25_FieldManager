@@ -1419,7 +1419,9 @@ function FieldListHUD:getWorkItemsAll(entry)
     end
     -- Leeres Feld: nur die erste Düngung (0 -> 1) ist möglich; die zweite braucht eine Frucht, die eine Stufe gewachsen ist
     local emptySecond = not growing and (entry.spray or 0) >= 1
-    if entry.spray ~= nil and entry.spray < sprayMax and not sprayBlocked and not emptySecond and not self:sprayBlockedAgain(entry) then
+    -- Zwischenfrucht mit Stufe 1: die fehlende Stufe kommt vom Untergrubbern, Düngen nicht nötig
+    local ccCovered = growing and FieldListHUD.isCatchCrop(entry.fruitName) and (entry.spray or 0) >= 1
+    if entry.spray ~= nil and entry.spray < sprayMax and not sprayBlocked and not emptySecond and not ccCovered and not self:sprayBlockedAgain(entry) then
         table.insert(items, { prio = 5, kind = "spray", cell = string.format("%d/%d", entry.spray or 0, sprayMax), text = T("work_spray"), short = T("work_spray_short") })
     end
     if entry.weed ~= nil and entry.weed > 0 then
@@ -1435,7 +1437,7 @@ function FieldListHUD:getWorkItemsAll(entry)
                 or (gs ~= nil and not entry.harvestReady and not (gs >= 1 and (entry.maxGrowth == nil or gs <= entry.maxGrowth)))
             if empty and self:canSowNow("OILSEEDRADISH") then
                 local ce = self:getEntryByFruitName("OILSEEDRADISH")
-                table.insert(items, { prio = 6, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short"),
+                table.insert(items, { prio = 7, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short"),
                     hud = string.format(T("work_cc_hud"), (ce ~= nil and ce.fruitTitle) or "Ölrettich") })
             end
         end
@@ -1444,7 +1446,7 @@ function FieldListHUD:getWorkItemsAll(entry)
     -- Die Arbeit lässt sich wie die anderen in den nächsten Monat schieben (Art "cc").
     if FieldListHUD.isCatchCrop(string.upper(entry.fruitName or "")) and entry.growthState ~= nil
         and entry.maxGrowth ~= nil and entry.growthState >= 1 and entry.growthState == entry.maxGrowth then
-        table.insert(items, { prio = 6, kind = "cc", cell = T("work_cc_cult_cell"), text = T("work_cc_cult"), short = T("work_cc_cult") })
+        table.insert(items, { prio = 5.5, kind = "cc", cell = T("work_cc_cult_cell"), text = T("work_cc_cult"), short = T("work_cc_cult") })
     end
     local rcSow = self.store ~= nil and self.store[entry.id] or nil
     local sowDue = self:needsSowing(entry) and self:canSowNow(rcSow.next)
@@ -1455,7 +1457,7 @@ function FieldListHUD:getWorkItemsAll(entry)
     end
     if sowDue then
         local ne = self:getNextFruitEntry(entry)
-        table.insert(items, { prio = 7, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", cell2 = self:getSeederText(rcSow.next, true), text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") .. (self:getSeederText(rcSow.next) ~= nil and (" – " .. self:getSeederText(rcSow.next)) or ""), short = T("work_sow_short"),
+        table.insert(items, { prio = 6, kind = "sow", cell = (ne ~= nil and ne.fruitTitle) or "?", cell2 = self:getSeederText(rcSow.next, true), text = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") .. (self:getSeederText(rcSow.next) ~= nil and (" – " .. self:getSeederText(rcSow.next)) or ""), short = T("work_sow_short"),
             hud = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") })
     end
     if self:needsRolling(entry) then
@@ -3653,7 +3655,7 @@ function FieldListHUD:getNextMonthItems(entry)
         if ses ~= nil and not self:canSowNow(rc.next) and ses.plant[nxt] == true then
             local ne = self:getNextFruitEntry(entry)
             local title = (ne ~= nil and ne.fruitTitle) or "?"
-            items[#items + 1] = { prio = 7, kind = "sow", preview = true, cell = title, cell2 = self:getSeederText(rc.next, true), text = string.format(T("work_sow"), title) }
+            items[#items + 1] = { prio = 6, kind = "sow", preview = true, cell = title, cell2 = self:getSeederText(rc.next, true), text = string.format(T("work_sow"), title) }
         end
     end
     -- Geplante Zwischenfrucht
@@ -3666,21 +3668,31 @@ function FieldListHUD:getNextMonthItems(entry)
         if empty and ses ~= nil and not self:canSowNow("OILSEEDRADISH") and ses.plant[nxt] == true then
             local ce = self:getEntryByFruitName("OILSEEDRADISH")
             local title = (ce ~= nil and ce.fruitTitle) or "Ölrettich"
-            items[#items + 1] = { prio = 6, kind = "cc", preview = true, cell = title, cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), title) }
+            items[#items + 1] = { prio = 7, kind = "cc", preview = true, cell = title, cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), title) }
         end
     end
     -- Ernte: stehende Frucht wird nächsten Monat erntereif
     if entry.fruitIndex ~= nil and entry.growthState ~= nil and not entry.harvestReady and not have.harvest
         and not FieldListHUD.isCatchCrop(string.upper(entry.fruitName or ""))
-        and not FieldListHUD.MULTI_CUT[string.upper(entry.fruitName or "")]
         and entry.growthState >= 1 and (entry.maxGrowth == nil or entry.growthState <= entry.maxGrowth) then
         local ft = g_fruitTypeManager:getFruitTypeByIndex(entry.fruitIndex)
         local ses = ft ~= nil and self:parseSeason(ft) or nil
         if ses ~= nil and ses.map ~= nil then
-            local q = self:simHarvestAbs(ft, ses, cur, entry.growthState, false)
+            local q = self:simHarvestAbs(ft, ses, cur, entry.growthState, true)
             if q == cur + 1 then
                 items[#items + 1] = { prio = 1, kind = "harvest", preview = true, cell = FieldListHUD.periodMonth(nxt), text = T("ground_ready") }
             end
+        end
+    end
+    -- Zwischenfrucht erreicht im nächsten Monat die letzte Wachstumsstufe: Grubbern steht dann an
+    if not have.cc and entry.fruitIndex ~= nil and entry.growthState ~= nil and entry.maxGrowth ~= nil
+        and entry.growthState >= 1 and entry.growthState < entry.maxGrowth
+        and FieldListHUD.isCatchCrop(string.upper(entry.fruitName or "")) then
+        local ft = g_fruitTypeManager:getFruitTypeByIndex(entry.fruitIndex)
+        local ses = ft ~= nil and self:parseSeason(ft) or nil
+        local m0 = ses ~= nil and ses.map ~= nil and ses.map[cur] or nil
+        if m0 ~= nil and m0[entry.growthState] == entry.maxGrowth then
+            items[#items + 1] = { prio = 5.5, kind = "cc", preview = true, cell = T("work_cc_cult_cell"), text = T("work_cc_cult") }
         end
     end
     return items
@@ -4423,7 +4435,9 @@ end
 -- Gesät wird erst, wenn die Ernte der aktuellen Frucht vorbei ist (Ende ihres Erntefensters).
 -- Passt danach kein Saatfenster mehr ins laufende Jahr, wird erst im nächsten Jahr gesät.
 -- Rückgabe: 1 = Ernte im nächsten Jahr, 2 = Ernte in 2 Jahren
-function FieldListHUD:getFolgeOffset(fruitIndex, curIndex, late)
+-- state (optional): Wachstumsstufe der stehenden Frucht. Schnittfrüchte (Ackergras, Klee, Luzerne) werden nach dem ersten Schnitt
+-- umgebrochen; dann kann die Folgefrucht noch im selben Jahr gesät und geerntet werden (Rückgabe 0).
+function FieldListHUD:getFolgeOffset(fruitIndex, curIndex, late, state)
     local cur = self:getCurrentPeriod()
     local ftF = fruitIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex) or nil
     do -- mit Übergangstabellen genau rechnen
@@ -4434,12 +4448,19 @@ function FieldListHUD:getFolgeOffset(fruitIndex, curIndex, late)
             -- Ende des Erntefensters der aktuellen Frucht: erst danach ist das Feld frei
             -- (late: Frucht wird erst im nächsten Jahr geerntet, dann zählt das erste Fenster des Jahres)
             local he, st0 = nil, nil
-            for p = 1, 13 do
-                if p <= 12 and sesC0.harvest[p] then
-                    if st0 == nil then st0 = p end
-                elseif st0 ~= nil then
-                    if late or p - 1 >= cur then he = p - 1 break end
-                    st0 = nil
+            local multi = false
+            if state ~= nil and not late and FieldListHUD.MULTI_CUT[string.upper(ftC0.name or "")] then
+                local q0 = self:simHarvestAbs(ftC0, sesC0, cur, state, true)
+                if q0 ~= nil and q0 <= 12 then he, multi = q0, true end
+            end
+            if he == nil then
+                for p = 1, 13 do
+                    if p <= 12 and sesC0.harvest[p] then
+                        if st0 == nil then st0 = p end
+                    elseif st0 ~= nil then
+                        if late or p - 1 >= cur then he = p - 1 break end
+                        st0 = nil
+                    end
                 end
             end
             if late and he ~= nil then
@@ -4448,7 +4469,10 @@ function FieldListHUD:getFolgeOffset(fruitIndex, curIndex, late)
             end
             if he ~= nil then
                 local q = self:plannedHarvestAbs(fruitIndex, he)
-                if q ~= nil then return math.max(1, math.floor((q - 1) / 12)) end
+                if q ~= nil then
+                    if multi then return math.floor((q - 1) / 12) end
+                    return math.max(1, math.floor((q - 1) / 12))
+                end
             end
         end
     end
@@ -5081,7 +5105,7 @@ function FieldListHUD:collectFruitTotals()
                     elseif curIndex == nil then
                         nOff = self:getHarvestOffset(fp.index, "sow")   -- leeres Feld: Aussaat ab jetzt
                     elseif curOff == 0 then
-                        nOff = self:getFolgeOffset(fp.index, curIndex)  -- erst nach der Ernte; passt kein Saatfenster mehr ins Jahr: Ernte in 2 Jahren
+                        nOff = self:getFolgeOffset(fp.index, curIndex, nil, (ov == nil) and e.growthState or nil)  -- erst nach der Ernte; passt kein Saatfenster mehr ins Jahr: Ernte in 2 Jahren
                     else
                         nOff = 2                                         -- Feld trägt noch bis ins nächste Jahr
                     end
@@ -7890,7 +7914,8 @@ function FieldListHUD:planAllNext()
                         if curIndex == nil then
                             off = self:getHarvestOffset(o.index, "sow")
                         else
-                            off = self:getFolgeOffset(o.index, curIndex, standingLate)
+                            off = self:getFolgeOffset(o.index, curIndex, standingLate, (ov == nil) and e.growthState or nil)
+                            if off == 0 then off = 1 end -- noch dieses Jahr geerntet: deckt den Bedarf des nächsten Jahres
                         end
                     end
                     local sowOk = (off == 1 or off == 2)
@@ -8050,7 +8075,8 @@ function FieldListHUD:planOneNext(id)
                 if curIndex == nil then
                     off = self:getHarvestOffset(o.index, "sow")
                 else
-                    off = self:getFolgeOffset(o.index, curIndex, standingLate)
+                    off = self:getFolgeOffset(o.index, curIndex, standingLate, (ov == nil) and e.growthState or nil)
+                            if off == 0 then off = 1 end -- noch dieses Jahr geerntet: deckt den Bedarf des nächsten Jahres
                 end
                 if off == 1 or off == 2 then
                     local r = self:rateCandidate(rec, nm)

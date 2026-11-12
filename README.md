@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.7** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.8** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -36,6 +36,8 @@ Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite
 
 - Reiter **Diesen Monat** / **Nächsten Monat**: die Vorschau zeigt nur sichere Arbeiten (Aussaat, Ernte, auf nächsten Monat verschobene Arbeiten)
 - Aussaat-Zelle zeigt unter der Frucht die Maschine: Säm. (Sämaschine), Einzel (Einzelkorn), Pflanz (Pflanzmaschine), Säm./Einzel bei Ackerbohnen, Ackererbsen, Zwiebeln; aus den Fruchtkategorien des Spiels gelesen, nicht im HUD
+- Nächster Monat: auch erste Ernte von Gras/Ackergras/Luzerne/Klee und „Zwischenfrucht grubbern", wenn die Zwischenfrucht im Monat ausgewachsen ist; Reihenfolge: Grubbern vor Aussaat vor Zwischenfrucht-Aussaat
+- Planung: nach Ackergras/Klee/Luzerne wird nach dem nächsten Schnitt gepflügt und die Folgefrucht zum nächsten Saattermin gesät (auch noch im selben Jahr); stehende Früchte rechnen den Wachstumsschritt des laufenden Monats mit; kein Düngen bei Zwischenfrucht ab Stufe 1 (Grubbern bringt Stufe 2)
 - Zwischenfrucht (z. B. Ölrettich) voll ausgewachsen: Arbeit „Grubbern", ebenfalls verschiebbar; Düngen auf leerem Feld nur einmal, sonst erst nach einer Wachstumsstufe (Gras: nach dem Monatswechsel)
 
 ### Seite 3: Fruchtfolge-Planung

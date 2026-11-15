@@ -981,6 +981,13 @@ function FieldListHUD:trackField(entry)
     rec.lastGs = gsNow
     local growingNow = gsNow ~= nil and gsNow >= 1 and (entry.maxGrowth == nil or gsNow <= entry.maxGrowth)
     local resown = name ~= nil and not FieldListHUD.CUT_CROPS[name] and growingNow and prevGs ~= nil and gsNow < prevGs
+    -- Veralteter Zwischenfrucht-Marker: wächst die aktuelle Frucht schon, lag die Zwischenfrucht davor (Vorfrucht 1 -> Aktuell)
+    if rec.ccPending and growingNow and name ~= nil and rec.cur ~= nil and not rec.gap
+        and FieldListHUD.sameFruit(name, rec.cur) and rec.hist ~= nil and rec.hist[1] ~= nil then
+        rec.cc = rec.cc or {}
+        rec.cc[1] = true
+        rec.ccPending = false
+    end
     if rec.manual then
         if name == nil then
             if rec.skip ~= nil then rec.skipEmpty = true end
@@ -1010,6 +1017,12 @@ function FieldListHUD:trackField(entry)
         self:captureSowFactor(rec, name, entry)
         rec.cur = name
         rec.gap = false
+        -- Zwischenfrucht lag vor dieser Frucht: Marker gehört zwischen Vorfrucht 1 und Aktuell
+        if rec.ccPending and rec.hist ~= nil and rec.hist[1] ~= nil then
+            rec.cc = rec.cc or {}
+            rec.cc[1] = true
+            rec.ccPending = false
+        end
         rec.curSilage = nil
         if FieldListHUD.sameFruit(rec.next, name) then
             rec.curSilage = rec.silage
@@ -1038,6 +1051,11 @@ function FieldListHUD:trackField(entry)
             rec.done = false -- Schnittfrüchte wachsen nach jedem Schnitt neu, das ist keine Neuaussaat
         elseif not growing then
             rec.done = true
+        elseif rec.ccPending and not rec.done and not resown and rec.hist ~= nil and rec.hist[1] ~= nil then
+            -- Veralteter Marker: die Frucht wächst schon, die Zwischenfrucht lag davor
+            rec.cc = rec.cc or {}
+            rec.cc[1] = true
+            rec.ccPending = false
         elseif rec.done or resown then
             rec.done = false
             self:captureSowFactor(rec, name, entry)
@@ -1460,7 +1478,9 @@ function FieldListHUD:getWorkItemsAll(entry)
             local gs = entry.growthState
             local empty = entry.fruitTitle == nil
                 or (gs ~= nil and not entry.harvestReady and not (gs >= 1 and (entry.maxGrowth == nil or gs <= entry.maxGrowth)))
-            if empty and self:canSowNow("OILSEEDRADISH") then
+            -- Folgefrucht jetzt säbar, aber nach der Zwischenfrucht nicht mehr im Saatfenster: Zwischenfrucht entfällt
+            local mainNow = rc.next ~= nil and self:canSowNow(rc.next) and not self:ccDefersMain(entry, rc)
+            if empty and not mainNow and self:canSowNow("OILSEEDRADISH") then
                 local ce = self:getEntryByFruitName("OILSEEDRADISH")
                 table.insert(items, { prio = 7, kind = "cc", cell = (ce ~= nil and ce.fruitTitle) or "Ölrettich", cell2 = self:getSeederText("OILSEEDRADISH", true), text = string.format(T("work_cc"), (ce ~= nil and ce.fruitTitle) or "Ölrettich"), short = T("work_cc_short"),
                     hud = string.format(T("work_cc_hud"), (ce ~= nil and ce.fruitTitle) or "Ölrettich") })
@@ -1474,10 +1494,10 @@ function FieldListHUD:getWorkItemsAll(entry)
         table.insert(items, { prio = 5.5, kind = "cc", cell = T("work_cc_cult_cell"), text = T("work_cc_cult"), short = T("work_cc_cult") })
     end
     local rcSow = self.store ~= nil and self.store[entry.id] or nil
-    local sowDue = self:needsSowing(entry) and self:canSowNow(rcSow.next)
+    local sowDue = self:needsSowing(entry) and self:canSowNow(rcSow.next) and not self:ccDefersMain(entry, rcSow)
     -- Erntereifes Feld: ist das Saatfenster der Folgefrucht schon offen, steht die Aussaat im selben Monat an (nach der Ernte)
     if not sowDue and entry.harvestReady and not FieldListHUD.isCatchCrop(entry.fruitName)
-        and rcSow ~= nil and rcSow.next ~= nil and not rcSow.manual and self:canSowNow(rcSow.next) then
+        and rcSow ~= nil and rcSow.next ~= nil and not rcSow.manual and self:canSowNow(rcSow.next) and not self:ccDefersMain(entry, rcSow) then
         sowDue = true
     end
     if sowDue then
@@ -3676,6 +3696,21 @@ FieldListHUD.WORK_COLS = {
 
 -- Vorschau "Nächster Monat": nur sichere Arbeiten – zurückgestellte, Aussaat (Saatfenster öffnet erst nächsten Monat)
 -- und Ernte (stehende Frucht ist laut Wachstumstabelle nächsten Monat erntereif). Keine Prognose für Pflügen/Steine/Kalk/Düngen/Unkraut.
+-- Geplante Zwischenfrucht jetzt säbar und die Folgefrucht kann nach dem Untergrubbern noch gesät werden:
+-- erst Zwischenfrucht (Ertragsbonus), die Hauptfrucht wird zurückgestellt
+function FieldListHUD:ccDefersMain(entry, rc)
+    if rc == nil or rc.next == nil or not rc.ccPlanned or rc.ccPending then return false end
+    if not self:canSowNow("OILSEEDRADISH") then return false end
+    local cur = self:getCurrentPeriod()
+    if cur == nil then return false end
+    local fz = g_fruitTypeManager:getFruitTypeByName("OILSEEDRADISH")
+    local fm = g_fruitTypeManager:getFruitTypeByName(string.upper(rc.next))
+    local sm = fm ~= nil and self:parseSeason(fm) or nil
+    if fz == nil or sm == nil then return false end
+    local n = math.max(1, (fz.maxHarvestingGrowthState or fz.numGrowthStates or 2) - 1)
+    return sm.plant[(cur - 1 + n) % 12 + 1] == true
+end
+
 function FieldListHUD:getNextMonthItems(entry)
     local items, have = {}, {}
     if entry.unused then return items end
@@ -3693,7 +3728,7 @@ function FieldListHUD:getNextMonthItems(entry)
     if rc ~= nil and rc.next ~= nil and not rc.manual and not have.sow and self:needsSowing(entry) then
         local ft = g_fruitTypeManager:getFruitTypeByName(string.upper(rc.next))
         local ses = ft ~= nil and self:parseSeason(ft) or nil
-        if ses ~= nil and not self:canSowNow(rc.next) and ses.plant[nxt] == true then
+        if ses ~= nil and ((not self:canSowNow(rc.next) and ses.plant[nxt] == true) or self:ccDefersMain(entry, rc)) then
             local ne = self:getNextFruitEntry(entry)
             local title = (ne ~= nil and ne.fruitTitle) or "?"
             items[#items + 1] = { prio = 6, kind = "sow", preview = true, cell = title, cell2 = self:getSeederText(rc.next, true), text = string.format(T("work_sow"), title) }

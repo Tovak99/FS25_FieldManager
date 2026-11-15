@@ -636,6 +636,7 @@ function FieldListHUD.harvestMinState(ft)
     return m
 end
 
+FieldListHUD.upperNames = {}
 function FieldListHUD:buildEntry(field, light)
     local entry = {
         id   = self:getFieldNumber(field),
@@ -671,7 +672,12 @@ function FieldListHUD:buildEntry(field, light)
         entry.growthState  = field.fieldState ~= nil and field.fieldState.growthState or nil
         entry.maxGrowth    = fruitType.numGrowthStates
         entry.fruitIndex   = fruitType.index
-        entry.fruitName    = string.upper(fruitType.name or "")
+        local upName = FieldListHUD.upperNames[fruitType.index]
+        if upName == nil then
+            upName = string.upper(fruitType.name or "")
+            FieldListHUD.upperNames[fruitType.index] = upName
+        end
+        entry.fruitName    = upName
         if entry.growthState ~= nil and fruitType.minHarvestingGrowthState ~= nil
             and fruitType.maxHarvestingGrowthState ~= nil then
             entry.harvestReady = entry.growthState >= FieldListHUD.harvestMinState(fruitType)
@@ -692,7 +698,7 @@ function FieldListHUD:buildEntry(field, light)
             entry.iconFilename = fallback ~= nil and fallback.hudOverlayFilename or nil
         end
 
-        local name = string.upper(fruitType.name or "")
+        local name = entry.fruitName
         entry.category = FieldListHUD.getCategory(name)
         if FieldListHUD.CATEGORIES[name] == nil and not self.warned[name] then
             self.warned[name] = true
@@ -735,19 +741,28 @@ function FieldListHUD:getSeederText(fruitName, short)
         end)
         self.seederMap = map
     end
+    self.seederText = self.seederText or {}
+    local mk = fruitName .. (short and "|s" or "|l")
+    local hit = self.seederText[mk]
+    if hit ~= nil then return hit or nil end
     local ft = fm:getFruitTypeByName(string.upper(fruitName))
     local k = ft ~= nil and self.seederMap[ft.index] or nil
-    if k == nil then return nil end
-    if k.sow and k.plant then return T("seed_either" .. (short and "_s" or "")) end
-    if k.sow then return T("seed_sow" .. (short and "_s" or "")) end
-    if k.plant then return T("seed_plant" .. (short and "_s" or "")) end
-    if k.small then return T("seed_small" .. (short and "_s" or "")) end
-    if k.cane then return T("seed_cane" .. (short and "_s" or "")) end
-    return nil
+    local sfx = short and "_s" or ""
+    local res = nil
+    if k ~= nil then
+        if k.sow and k.plant then res = T("seed_either" .. sfx)
+        elseif k.sow then res = T("seed_sow" .. sfx)
+        elseif k.plant then res = T("seed_plant" .. sfx)
+        elseif k.small then res = T("seed_small" .. sfx)
+        elseif k.cane then res = T("seed_cane" .. sfx) end
+    end
+    self.seederText[mk] = res or false
+    return res
 end
 
 -- Baut die Liste der Felder auf, die zum eigenen Hof gehören
 function FieldListHUD:refreshFields()
+    self.lastMenuRefresh = g_time or 0 -- das Menü muss nicht gleich nochmal aufbauen
     local list = {}
     if g_currentMission ~= nil and g_fieldManager ~= nil then
         local farmId = g_currentMission:getFarmId()
@@ -800,10 +815,20 @@ end
 -- Sommerformen sind dieselbe Art wie die Winterform (für Bedarf, Planung und Fruchtfolge)
 FieldListHUD.FRUIT_ALIAS = { SUMMERWHEAT = "WHEAT", SUMMERBARLEY = "BARLEY" }
 
+local sameFruitMemo = {}
 function FieldListHUD.sameFruit(a, b)
     if a == nil or b == nil then
         return false
     end
+    local mk = a .. "|" .. b
+    local mv = sameFruitMemo[mk]
+    if mv ~= nil then return mv end
+    mv = FieldListHUD.sameFruitCalc(a, b)
+    sameFruitMemo[mk] = mv
+    return mv
+end
+
+function FieldListHUD.sameFruitCalc(a, b)
     a = FieldListHUD.FRUIT_ALIAS[a] or a
     b = FieldListHUD.FRUIT_ALIAS[b] or b
     if a == b then
@@ -1461,7 +1486,9 @@ function FieldListHUD:getWorkItemsAll(entry)
             hud = string.format(T("work_sow"), (ne ~= nil and ne.fruitTitle) or "?") })
     end
     if self:needsRolling(entry) then
-        table.insert(items, { prio = 8, kind = "roll", text = T("status_mustroll"), short = T("work_roll_short") })
+        local rn = string.upper(entry.fruitName or "")
+        local isGr = rn == "GRASS" or rn == "MEADOW" or rn == "FIELDGRASS"
+        table.insert(items, { prio = 8, kind = "roll", text = T("status_mustroll"), short = T(isGr and "work_roll_short_grass" or "work_roll_short_field") })
     end
     return items
 end
@@ -2994,7 +3021,7 @@ end
 -- Pro Spieler (Benutzerordner): Boni für geplante Felder, HUD-Fenster
 -- Für das ganze Spiel (Savegame, nur Host): Fruchtfolge-Ernte
 ------------------------------------------------------------------------
-FieldListHUD.settings = { hud = false, hx = 0.012, hy = 0.50, hw = 0.19, hh = 0.22, sortPrio = false }
+FieldListHUD.settings = { hud = false, hx = 0.012, hy = 0.50, hw = 0.19, hh = 0.22, sortPrio = false, useStock = true }
 
 function FieldListHUD:getPlayerSettingsPath()
     local base = getUserProfileAppPath() .. "modSettings/"
@@ -3012,6 +3039,8 @@ function FieldListHUD:loadPlayerSettings()
             if hud ~= nil then self.settings.hud = hud end
             local sp = getXMLBool(h, "fieldManagerSettings.hudSortPrio#value")
             if sp ~= nil then self.settings.sortPrio = sp end
+            local us = getXMLBool(h, "fieldManagerSettings.planUseStock#value")
+            if us ~= nil then self.settings.useStock = us end
             for _, k in ipairs({ "hx", "hy", "hw", "hh" }) do
                 local v = getXMLFloat(h, "fieldManagerSettings.hudWindow#" .. k)
                 if v ~= nil then self.settings[k] = v end
@@ -3030,6 +3059,7 @@ function FieldListHUD:savePlayerSettings()
         setXMLInt(h, "fieldManagerSettings.planBonus#value", FieldListHUD.PLAN_BONUS)
         setXMLBool(h, "fieldManagerSettings.hud#value", self.settings.hud == true)
         setXMLBool(h, "fieldManagerSettings.hudSortPrio#value", self.settings.sortPrio == true)
+        setXMLBool(h, "fieldManagerSettings.planUseStock#value", self.settings.useStock ~= false)
         for _, k in ipairs({ "hx", "hy", "hw", "hh" }) do
             setXMLFloat(h, "fieldManagerSettings.hudWindow#" .. k, self.settings[k])
         end
@@ -3057,6 +3087,13 @@ end
 function FieldListHUD:setPlanBonus(v)
     v = math.max(0, math.min(200, v))
     FieldListHUD.PLAN_BONUS = v
+    self.p3Dirty, self.wkDirty = true, true
+    self:markDirtyCaches()
+    self:savePlayerSettings()
+end
+
+function FieldListHUD:setUseStock(v)
+    self.settings.useStock = v == true
     self.p3Dirty, self.wkDirty = true, true
     self:markDirtyCaches()
     self:savePlayerSettings()
@@ -3152,6 +3189,10 @@ function FieldListHUD:drawOptionsPage(L)
     local canRot = self:isAuthority()
     rowBase(top, T("opt_rot"), T("opt_rot_hint") .. (canRot and "" or ("  " .. T("opt_host_only"))), not canRot)
     toggle(top, FieldListHUD.rotYield == true, canRot, function(v) self:setRotYield(v) end)
+    top = top - rowH - gap
+
+    rowBase(top, T("opt_usestock"), T("opt_usestock_hint"), false)
+    toggle(top, self.settings.useStock ~= false, true, function(v) self:setUseStock(v) end)
     top = top - rowH - gap
 
     rowBase(top, T("opt_bonus"), string.format(T("opt_bonus_hint"), 100 + FieldListHUD.PLAN_BONUS), false)
@@ -3678,8 +3719,19 @@ function FieldListHUD:getNextMonthItems(entry)
         local ft = g_fruitTypeManager:getFruitTypeByIndex(entry.fruitIndex)
         local ses = ft ~= nil and self:parseSeason(ft) or nil
         if ses ~= nil and ses.map ~= nil then
-            local q = self:simHarvestAbs(ft, ses, cur, entry.growthState, true)
-            if q == cur + 1 then
+            -- Sicher nur, wenn schon der Schritt des laufenden Monats die Erntestufe erreicht (egal, ob der Schritt
+            -- im Spiel zu Monatsbeginn oder -ende greift) und im nächsten Monat Erntezeit ist
+            local m0 = ses.map[cur]
+            local ns = m0 ~= nil and m0[entry.growthState] or nil
+            local minS = FieldListHUD.harvestMinState(ft)
+            local maxS = ft.maxHarvestingGrowthState or entry.maxGrowth
+            local isCut = FieldListHUD.CUT_CROPS[string.upper(entry.fruitName or "")]
+            local ok = ns ~= nil and ses.harvest[nxt] == true
+            if ok then
+                if isCut then ok = ns == math.max(entry.maxGrowth or 0, 4)
+                else ok = ns >= minS and ns <= maxS end
+            end
+            if ok then
                 items[#items + 1] = { prio = 1, kind = "harvest", preview = true, cell = FieldListHUD.periodMonth(nxt), text = T("ground_ready") }
             end
         end
@@ -3718,17 +3770,26 @@ function FieldListHUD:buildWorkRows()
     local wkMode = self.wkFilter or 4
     local nx = self.wkNext == true
     local src = {}
+    local itemsOf = {}
+    local function itemsFor(e)
+        local it = itemsOf[e.id]
+        if it == nil then
+            it = nx and self:getNextMonthItems(e) or self:getWorkItems(e, true)
+            itemsOf[e.id] = it
+        end
+        return it
+    end
     for _, e in ipairs(self.fields or {}) do
         local ok
         if wkMode == 4 then
-            ok = not e.unused and #(nx and self:getNextMonthItems(e) or self:getWorkItems(e, true)) > 0
+            ok = not e.unused and #itemsFor(e) > 0
         else
             ok = self:matchesFilter(e, wkMode)
         end
         if ok then src[#src + 1] = e end
     end
     for _, e in ipairs(src) do
-        local items = nx and self:getNextMonthItems(e) or self:getWorkItems(e, true)
+        local items = itemsFor(e)
         local byKind, minPrio, n = {}, 99, 0
         for _, it in ipairs(items) do
             byKind[it.kind or "?"] = it
@@ -5630,8 +5691,10 @@ end
 -- Fehlmenge je Jahr (1 = dieses, 2 = nächstes, 3 = in 2 Jahren) nach Verrechnung mit dem Lager.
 -- Das Lager läuft kumulativ durch: Bestand nach einem Jahr = Bestand davor + Ertrag - Bedarf (nie unter 0);
 -- ein negativer Rest ist die Fehlmenge dieses Jahres.
-function FieldListHUD:getStockShortages(item)
-    local stock = self:getRowStock(item) or 0
+function FieldListHUD:getStockShortages(item, planning)
+    -- Automatische Planung: Option "Lagerbestand berücksichtigen" aus = Bestand und Eingelagertes zählen nicht
+    local noStock = planning == true and self.settings.useStock == false
+    local stock = noStock and 0 or (self:getRowStock(item) or 0)
     local dem = item.demand or 0
     local isCut = item.multiCut or FieldListHUD.MULTI_CUT[item.name]
     local cutsF = (isCut and not item.yearly and item.cuts) or 1
@@ -5641,7 +5704,7 @@ function FieldListHUD:getStockShortages(item)
         (item.in2 or 0) * cutsF,
     }
     -- Was schon in den Produktionen eingelagert ist, ist bereits geliefert: wird einmalig vom Bedarf des ersten Jahres abgezogen
-    local inp = (not item.isAnimal) and (self:getRowInput(item) or 0) or 0
+    local inp = (not item.isAnimal and not noStock) and (self:getRowInput(item) or 0) or 0
     local dems = { math.max(0, dem - inp), dem, dem }
     local out, s = {}, stock
     out.rest = {}
@@ -6826,6 +6889,34 @@ function FieldListHUD:buildHarvestData(tab)
             end
         end
     end
+    -- Zeilen mit gleichem Namen zusammenfassen (z. B. Gras aus Mähwerk und aus Wiese/Schwad)
+    do
+        local byTitle, merged = {}, {}
+        for _, f in ipairs(list) do
+            local m = byTitle[f.title]
+            if m == nil then
+                byTitle[f.title] = f
+                merged[#merged + 1] = f
+            else
+                m.total = m.total + f.total
+                if f.active then m.active = true end
+                for _, ff in ipairs(f.fields) do
+                    local found
+                    for _, mf in ipairs(m.fields) do
+                        if mf.id == ff.id then found = mf break end
+                    end
+                    if found ~= nil then
+                        found.liters = found.liters + ff.liters
+                        found.ha = math.max(found.ha, ff.ha)
+                        if ff.active then found.active = true end
+                    else
+                        m.fields[#m.fields + 1] = ff
+                    end
+                end
+            end
+        end
+        list = merged
+    end
     table.sort(list, function(a, b) return a.total > b.total end)
     for _, f in ipairs(list) do
         table.sort(f.fields, function(a, b) return a.liters > b.liters end)
@@ -7842,12 +7933,12 @@ function FieldListHUD:planAllNext()
         local shortS = { {}, {} }
         for _, it in ipairs(list) do
             if it.isStraw and it.strawFill ~= nil and (it.demand or 0) > 0 then
-                local shs = self:getStockShortages(it)
+                local shs = self:getStockShortages(it, true)
                 shortS[1][it.strawFill] = shs[2]
                 shortS[2][it.strawFill] = shs[3]
             elseif it.isSilage and (it.demand or 0) > 0 then
                 -- Silage/Häckselgut: Fehlmenge wird vom Mais gedeckt (Schlüssel "MAIZE_CHAFF")
-                local shs = self:getStockShortages(it)
+                local shs = self:getStockShortages(it, true)
                 shortS[1]["MAIZE_CHAFF"] = shs[2]
                 shortS[2]["MAIZE_CHAFF"] = shs[3]
             end
@@ -7856,7 +7947,7 @@ function FieldListHUD:planAllNext()
             if it.name ~= nil and not it.isAnimal and not it.isStraw and not it.isSilage and not it.isWindrow and not it.isHeader
                 and not it.multiCut and not FieldListHUD.MULTI_CUT[it.name] then
                 -- Fehlmenge nach Verrechnung mit dem Lager (kumulativ über die Jahre)
-                local shs = self:getStockShortages(it)
+                local shs = self:getStockShortages(it, true)
                 shortH[1][it.name] = shs[2]
                 shortH[2][it.name] = shs[3]
             end
@@ -7864,7 +7955,7 @@ function FieldListHUD:planAllNext()
         -- Schwad-Zeilen (z. B. Flachsschwad, Hanfschwad): Fehlmenge gehört zur Frucht, die den Schwad liefert
         for _, it in ipairs(list) do
             if it.isWindrow and it.name ~= nil then
-                local shs = self:getStockShortages(it)
+                local shs = self:getStockShortages(it, true)
                 shortWH[1][it.name] = (shortWH[1][it.name] or 0) + shs[2]
                 shortWH[2][it.name] = (shortWH[2][it.name] or 0) + shs[3]
             end
@@ -8025,22 +8116,22 @@ function FieldListHUD:planOneNext(id)
         local shortS = { {}, {} }
         for _, it in ipairs(list) do
             if it.isStraw and it.strawFill ~= nil and (it.demand or 0) > 0 then
-                local shs = self:getStockShortages(it)
+                local shs = self:getStockShortages(it, true)
                 shortS[1][it.strawFill] = shs[2]
                 shortS[2][it.strawFill] = shs[3]
             elseif it.isSilage and (it.demand or 0) > 0 then
-                local shs = self:getStockShortages(it)
+                local shs = self:getStockShortages(it, true)
                 shortS[1]["MAIZE_CHAFF"] = shs[2]
                 shortS[2]["MAIZE_CHAFF"] = shs[3]
             end
             if it.name ~= nil and not it.isSilage then
                 if it.isWindrow then
-                    local shs = self:getStockShortages(it)
+                    local shs = self:getStockShortages(it, true)
                     shortWH[1][it.name] = (shortWH[1][it.name] or 0) + shs[2]
                     shortWH[2][it.name] = (shortWH[2][it.name] or 0) + shs[3]
                 elseif not it.isAnimal and not it.isStraw and not it.isHeader and not it.multiCut
                     and not FieldListHUD.MULTI_CUT[it.name] then
-                    local shs = self:getStockShortages(it)
+                    local shs = self:getStockShortages(it, true)
                     shortH[1][it.name] = shs[2]
                     shortH[2][it.name] = shs[3]
                 end
@@ -9053,6 +9144,9 @@ function FieldListHUD:getHudRows()
                 local txt = best.short or best.text or "?"
                 -- Aussaat im HUD mit Fruchtname ("Aussaat: Weizen"), Zwischenfrucht kurz ("Ölrettich säen")
                 if best.hud ~= nil then txt = best.hud end
+                if best.harvest == true and best.hud == nil and e.fruitTitle ~= nil then
+                    txt = txt .. ": " .. tostring(e.fruitTitle)
+                end
                 if #items > 1 then txt = txt .. " (+)" end
                 table.insert(rows, { id = e.id, text = txt, harvest = best.harvest == true, prio = best.prio or 99 })
             end

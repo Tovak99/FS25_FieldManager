@@ -9,27 +9,32 @@ SeasonalProduction.modName = g_currentModName
 -- Vorgabe: Saison der Hauptware (Kalendermonate 1 = Januar .. 12 = Dezember), später in der Konfiguration änderbar
 SeasonalProduction.SEASONS = {
     STRAWBERRY = { from = 5, to = 7 },
-    PUMPKIN    = { from = 9, to = 10 },
-    CHERRY     = { from = 6, to = 7 },
+    PUMPKIN    = { from = 9, to = 11 },
+    CHERRY     = { from = 6, to = 8 },
     APPLE      = { from = 8, to = 10 },
-    GRAPE      = { from = 9, to = 10 },
+    GRAPE      = { from = 8, to = 10 },
     HONEY      = { from = 4, to = 9 },
-    -- Annahmen, bitte pruefen / in der Konfiguration anpassen
+    -- Annahmen (Pflaume, Birne, Mirabelle, Hopfen, Honig-Rest, Olive, Rollrasen), bitte pruefen / in der Konfiguration anpassen
     PEAR       = { from = 8, to = 10 },
     PLUM       = { from = 7, to = 9 },
-    PEACH      = { from = 7, to = 8 },
-    MIRABELLES = { from = 8, to = 9 },
+    PEACH      = { from = 7, to = 9 },
+    MIRABELLES = { from = 7, to = 9 },
     HOPS       = { from = 8, to = 9 },
-    CURRANTS   = { from = 6, to = 7 },
-    BLACKBERRY = { from = 8, to = 9 },
-    RASPBERRY  = { from = 7, to = 8 },
-    OLIVE      = { from = 11, to = 2 },
+    CURRANTS   = { from = 6, to = 8 },
+    BLACKBERRY = { from = 8, to = 10 },
+    RASPBERRY  = { from = 6, to = 9 },
+    OLIVE      = { from = 11, to = 1 },
     TURF       = { from = 4, to = 10 },
 }
 
 -- Ausnahmen nach Dateiname (Hauptware ist dort kein echter Fruchttyp, z. B. Tannenbaeume = CASH)
 SeasonalProduction.FILE_SEASONS = {
     ["feld_tannenbaum.xml"] = { from = 11, to = 12 },
+}
+
+-- Obergrenze der Zyklen pro Monat in der Spitze (nach Dateiname), damit die Saisonspitze nicht ins Unermessliche steigt
+SeasonalProduction.MAX_CYCLES_PER_MONTH = {
+    ["feld_tannenbaum.xml"] = 100,
 }
 
 -- Rubriken des Baumenüs, die als Anbau gelten (Vorgabe)
@@ -284,7 +289,18 @@ function SeasonalProduction.apply()
                         end
                         SeasonalProduction.base[prod] = b
                     end
-                    for fn, v in pairs(b) do prod[fn] = v * f end
+                    local fp = f
+                    local cap = SeasonalProduction.MAX_CYCLES_PER_MONTH[string.lower(tostring(d.file or ""))]
+                    if cap ~= nil and f > 1 then
+                        -- Grundzyklen pro Monat (ein Spielmonat = daysPerPeriod Tage zu 24 Stunden)
+                        local env = g_currentMission ~= nil and g_currentMission.environment or nil
+                        local dpp = (env ~= nil and env.daysPerPeriod) or 1
+                        local cpm = b.cyclesPerMonth or b.baseCyclesPerMonth
+                        if cpm == nil and (b.cyclesPerHour or b.baseCyclesPerHour) then cpm = (b.cyclesPerHour or b.baseCyclesPerHour) * 24 * dpp end
+                        if cpm == nil and (b.cyclesPerMinute or b.baseCyclesPerMinute) then cpm = (b.cyclesPerMinute or b.baseCyclesPerMinute) * 60 * 24 * dpp end
+                        if cpm ~= nil and cpm > 0 and cpm * f > cap then fp = cap / cpm end
+                    end
+                    for fn, v in pairs(b) do prod[fn] = v * fp end
                 end
             end
         end

@@ -46,6 +46,8 @@
         <text name="fl_work_spray_short" text="Düngen nötig"/>
         <text name="fl_work_weeds" text="Unkraut"/>
         <text name="fl_work_roll_short" text="Walzen nötig"/>
+        <text name="fl_work_roll_short_grass" text="Walzen (Gras)"/>
+        <text name="fl_work_roll_short_field" text="Walzen (Feld)"/>
         <text name="fl_work_sow" text="Aussaat: %s"/>
         <text name="fl_season_off" text="Außerhalb der Erntezeit"/>
         <text name="fl_title_season" text="ERNTEKALENDER  ·  SAISONALE PRODUKTION"/>
@@ -351,5 +353,7 @@
         <text name="fl_opt_sec_season" text="SAISONALE PRODUKTION"/>
         <text name="fl_opt_season" text="Saisonale Produktion"/>
         <text name="fl_opt_season_hint" text="Plantagen und Feldproduktionen (Kürbis, Erdbeeren, Äpfel usw.) produzieren nur in ihrer Saison, dafür mit höherer Leistung. Gewächshäuser laufen ganzjährig."/>
+        <text name="fl_opt_usestock" text="Lagerbestand berücksichtigen"/>
+        <text name="fl_opt_usestock_hint" text="Die automatische Feldplanung rechnet den Lagerbestand (und Eingelagertes in Produktionen) gegen die Fehlmenge. Aus = Planung nur nach Bedarf und Ertrag."/>
     </texts>
 </l10n>

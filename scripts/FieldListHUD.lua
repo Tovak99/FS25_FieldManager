@@ -897,6 +897,8 @@ end
 -- Fruchtfolgefaktor zum Saatzeitpunkt festhalten (gilt später bei der Ernte); nur wenn die Saat gerade erst erfolgt ist
 function FieldListHUD:captureSowFactor(rec, name, entry)
     local gs = entry ~= nil and entry.growthState or nil
+    -- Saatmonat merken, wenn die Frucht frisch gesät ist (Stufe 1); sonst unbekannt (Kalender rechnet dann zurück)
+    rec.sowPeriod = (gs == 1) and self:getCurrentPeriod() or nil
     if gs == nil or gs > 2 then
         rec.sowFactor, rec.sowFruit = nil, nil -- Bestand war schon gewachsen: Faktor unbekannt
         return
@@ -1191,6 +1193,7 @@ function FieldListHUD:saveData(dir)
                 setXMLFloat(h, key .. "#sowF", rec.sowFactor)
                 setXMLString(h, key .. "#sowFruit", rec.sowFruit or "")
             end
+            if rec.sowPeriod ~= nil then setXMLInt(h, key .. "#sowP", rec.sowPeriod) end
         end
         saveXMLFile(h)
         delete(h)
@@ -1273,6 +1276,7 @@ function FieldListHUD:loadData(dir)
             rec.sprayGs = getXMLInt(h, key .. "#sprayGs")
             do local pv = getXMLString(h, key .. "#post"); rec.post = (pv ~= nil and pv ~= "") and pv or nil end
             rec.sowFruit = val("sowFruit")
+            rec.sowPeriod = getXMLInt(h, key .. "#sowP")
             rec.harv = FieldListHUD.parseHarv(val("harv"))
             i = i + 1
             count = count + 1
@@ -2521,7 +2525,59 @@ function FieldListHUD:drawRatingPanel(x, top, w, rating, fruitTitle)
     return y - 0.008
 end
 
-function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
+-- Geplanter Aussaat- und Erntemonat (Kalendermonat 1-12) für den Kalender auf Seite 1; nil, wenn nicht ermittelbar
+function FieldListHUD:getPlannedMonths(entry, ftIndex, isNext)
+    local sowM, harvM = nil, nil
+    local ft = ftIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(ftIndex) or nil
+    local ses = ft ~= nil and self:parseSeason(ft) or nil
+    local cur = self:getCurrentPeriod()
+    if ses == nil or ses.map == nil or cur == nil or entry == nil then return nil, nil end
+    local function toM(q) return (((q - 1) % 12) + 1 + 1) % 12 + 1 end
+    local sowM0 = nil
+    if not isNext then
+        if entry.fruitIndex == ftIndex and entry.growthState ~= nil and not FieldListHUD.isCatchCrop(string.upper(entry.fruitName or "")) then
+            local q = self:simHarvestAbs(ft, ses, cur, entry.growthState, true)
+            if q ~= nil then harvM = toM(q) end
+            -- Gemerkter Saatmonat (frisch gesät erkannt); sonst zurückrechnen: jüngster Saatmonat, dessen Wachstumsfolge den heutigen Stand ergibt
+            local recS = self:getRecord(entry.id)
+            if recS ~= nil and recS.sowPeriod ~= nil and string.upper(entry.fruitName or "") == string.upper(recS.cur or "") then
+                sowM = toM(recS.sowPeriod)
+            end
+            for back = 0, 11 do
+                if sowM ~= nil then break end
+                local ps = ((cur - 1 - back) % 12) + 1
+                if ses.plant[ps] then
+                    local st, p = 1, ps
+                    local steps = back
+                    while steps > 0 do
+                        local m = ses.map[p]
+                        if m ~= nil and m[st] ~= nil then st = m[st] end
+                        p = (p % 12) + 1
+                        steps = steps - 1
+                    end
+                    if st == entry.growthState then sowM = toM(ps) break end
+                end
+            end
+        end
+        return sowM, harvM
+    end
+    if FieldListHUD.MULTI_CUT[string.upper(ft.name or "")] then return nil, nil end
+    local ab = cur
+    if entry.fruitIndex ~= nil and entry.growthState ~= nil and not FieldListHUD.isCatchCrop(string.upper(entry.fruitName or "")) then
+        local ftC = g_fruitTypeManager:getFruitTypeByIndex(entry.fruitIndex)
+        local sesC = ftC ~= nil and self:parseSeason(ftC) or nil
+        if sesC ~= nil then
+            local qC = self:simHarvestAbs(ftC, sesC, cur, entry.growthState, true)
+            if qC ~= nil and qC <= 12 then ab = qC elseif qC ~= nil then ab = 13 end
+        end
+    end
+    local q, ps = self:plannedHarvestAbs(ft.index, (ab <= 12) and ab or 1)
+    if ps ~= nil then sowM = toM(ps) end
+    if q ~= nil then harvM = toM(q) end
+    return sowM, harvM
+end
+
+function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText, hlSow, hlHarvest)
     local ft = ftIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(ftIndex) or nil
 
     local iconH  = 0.034
@@ -2626,6 +2682,12 @@ function FieldListHUD:drawCalendar(x, top, w, ftIndex, emptyText)
         if harvestM[m] then
             self:drawRect(cx + 0.001, y + padB + 0.004, cellW - 0.002, rowH - 0.008, harvestC)
         end
+        -- geplanter Aussaat-/Erntemonat: kräftige, gesättigte Farbe, gleiche Größe wie die übrigen Balken
+        local function mark(ry, col)
+            self:drawRect(cx + 0.001, ry + 0.004, cellW - 0.002, rowH - 0.008, col)
+        end
+        if hlSow == m then mark(y + padB + rowH, { 0.13, 0.69, 0.30, 1 }) end   -- kräftiges, dunkleres Grün
+        if hlHarvest == m then mark(y + padB, { 0.93, 0.11, 0.14, 1 }) end      -- kräftiges Rot
     end
     return y - 0.008
 end
@@ -2898,7 +2960,8 @@ function FieldListHUD:drawDetail(d, entry)
     if hoverCur and curRating ~= nil then
         top = self:drawRatingPanel(d.x, top, d.w, curRating, entry.fruitTitle)
     else
-        top = self:drawCalendar(d.x, top, d.w, ovIndex or entry.fruitIndex, T("no_crop_on_field"))
+        local sv, hv = self:getPlannedMonths(entry, ovIndex or entry.fruitIndex, false)
+        top = self:drawCalendar(d.x, top, d.w, ovIndex or entry.fruitIndex, T("no_crop_on_field"), (ovIndex == nil) and sv or nil, (ovIndex == nil) and hv or nil)
     end
     local secNextTop = top
     top = self:drawSection(d.x, top, d.w, T("sec_next"))
@@ -2928,7 +2991,8 @@ function FieldListHUD:drawDetail(d, entry)
     if hoverRating and self.ratingNow ~= nil then
         top = self:drawRatingPanel(d.x, top, d.w, self.ratingNow, nopt ~= nil and nopt.title or nil)
     else
-        top = self:drawCalendar(d.x, top, d.w, nopt ~= nil and nopt.index or nil)
+        local sm, hm = self:getPlannedMonths(entry, nopt ~= nil and nopt.index or nil, true)
+        top = self:drawCalendar(d.x, top, d.w, nopt ~= nil and nopt.index or nil, nil, sm, hm)
     end
     top = self:drawFruitSelector(d.x, top, d.w, entry)
     top = top - 0.010
@@ -4435,9 +4499,7 @@ function FieldListHUD:getSowMonthText(fruitName, kind, fieldId)
         if sesC ~= nil then
             local qC = self:simHarvestAbs(ftC, sesC, cur, e.growthState, true)
             if qC ~= nil and qC <= 12 then
-                local he = qC
-                while he < 12 and sesC.harvest[he + 1] do he = he + 1 end
-                ab = he
+                ab = qC  -- frei ab der ersten möglichen Ernte (wie in der Planung)
             elseif qC ~= nil then
                 ab = 13
             end
@@ -4486,10 +4548,7 @@ function FieldListHUD:getHarvestMonthText(fruitName, mode, kind, fieldId)
                         local qC = self:simHarvestAbs(ftC, sesC, cur, e.growthState, true)
                         local startC = qC
                         if qC ~= nil and qC <= 12 then
-                            -- Ende des Erntefensters
-                            local he = qC
-                            while he < 12 and sesC.harvest[he + 1] do he = he + 1 end
-                            ab = he
+                            ab = qC  -- frei ab der ersten möglichen Ernte (wie in der Planung)
                         elseif qC ~= nil then
                             ab = 13
                         end
@@ -4545,9 +4604,13 @@ function FieldListHUD:getFolgeOffset(fruitIndex, curIndex, late, state)
             -- (late: Frucht wird erst im nächsten Jahr geerntet, dann zählt das erste Fenster des Jahres)
             local he, st0 = nil, nil
             local multi = false
-            if state ~= nil and not late and FieldListHUD.MULTI_CUT[string.upper(ftC0.name or "")] then
+            if state ~= nil and not late then
+                -- Stehende Frucht: frei ist das Feld ab der ersten möglichen Ernte (nicht erst am Ende des Erntefensters)
                 local q0 = self:simHarvestAbs(ftC0, sesC0, cur, state, true)
-                if q0 ~= nil and q0 <= 12 then he, multi = q0, true end
+                if q0 ~= nil and q0 <= 12 then
+                    he = q0
+                    multi = FieldListHUD.MULTI_CUT[string.upper(ftC0.name or "")] == true
+                end
             end
             if he == nil then
                 for p = 1, 13 do
@@ -4566,8 +4629,8 @@ function FieldListHUD:getFolgeOffset(fruitIndex, curIndex, late, state)
             if he ~= nil then
                 local q = self:plannedHarvestAbs(fruitIndex, he)
                 if q ~= nil then
-                    if multi then return math.floor((q - 1) / 12) end
-                    return math.max(1, math.floor((q - 1) / 12))
+                    -- Frei nach der ersten möglichen Ernte: reicht das Jahr noch für Aussaat und Ernte der Folgefrucht, zählt sie schon dieses Jahr
+                    return math.floor((q - 1) / 12)
                 end
             end
         end
@@ -4612,9 +4675,15 @@ function FieldListHUD:simHarvestAbs(ft, ses, fromPeriod, state, checkNow)
     local minS, maxS = ft.minHarvestingGrowthState, ft.maxHarvestingGrowthState
     if minS == nil or maxS == nil then return nil end
     minS = FieldListHUD.harvestMinState(ft)
+    -- Schnittfrüchte (Gras, Ackergras, Klee, Luzerne): geerntet wird nur bei voller Stufe (4/4)
+    if FieldListHUD.CUT_CROPS[string.upper(ft.name or "")] then
+        minS = math.max(minS, 4)
+        maxS = math.max(maxS, minS)
+    end
     local s = state
     if checkNow and s >= minS and s <= maxS and ses.harvest[fromPeriod] then return fromPeriod end
-    -- Stehende Frucht: der Wachstumsschritt des laufenden Monats steht noch aus (Anzeige zeigt den Stand vor dem Schritt)
+    -- Der Wachstumsschritt eines Monats greift am Monatsende: die Anzeige im Monat p zeigt den Stand vor dem Schritt von p.
+    -- Stehende bzw. frisch gesäte Frucht: der Schritt des laufenden Monats steht noch aus.
     if checkNow then
         local m0 = ses.map[fromPeriod]
         if m0 ~= nil and m0[s] ~= nil then s = m0[s] end
@@ -4622,9 +4691,9 @@ function FieldListHUD:simHarvestAbs(ft, ses, fromPeriod, state, checkNow)
     for k = 1, 36 do
         local qa = fromPeriod + k
         local p = ((qa - 1) % 12) + 1
+        if s >= minS and s <= maxS and ses.harvest[p] then return qa end
         local m = ses.map[p]
         if m ~= nil and m[s] ~= nil then s = m[s] end
-        if s >= minS and s <= maxS and ses.harvest[p] then return qa end
     end
     return nil
 end
@@ -6053,7 +6122,13 @@ function FieldListHUD:drawPopup(L)
         if r.demand <= 0 and (r.produce or 0) > 0 then
             renderText(rx[4], ry + rowH / 2, 0.013, "+" .. fmtLiters(r.produce)) -- Erzeugung pro Jahr (z. B. Fermenter)
         else
-            renderText(rx[4], ry + rowH / 2, 0.013, dFmt(r.demand / dDiv))
+            local dTxt = dFmt(r.demand / dDiv)
+            renderText(rx[4], ry + rowH / 2, 0.013, dTxt)
+            if (r.produce or 0) > 0 then
+                -- Produktion verbraucht und erzeugt Silage (z. B. Fermenter): Erzeugung zusätzlich in grün links davon
+                setTextColor(unpack(self.colorArea))
+                renderText(rx[4] - getTextWidth(0.013, dTxt) - 0.012, ry + rowH / 2, 0.013, "+" .. fmtLiters(r.produce))
+            end
         end
         setTextAlignment(RenderText.ALIGN_LEFT)
         if r.isInput then sumIn = sumIn + r.level else sumOther = sumOther + r.level end
@@ -6280,9 +6355,9 @@ function FieldListHUD:drawFruitPage(L)
         if not showThis then
             -- Spalte "dieses Jahr" ist im Reiter Planung ausgeblendet
         elseif planned > 0 then
-            -- "84.000 + 12.000 l": erster Teil steht auf dem Feld (weiß), zweiter ist aus der Folgefrucht geplant (hellblau)
+            -- "84.000 + 12.000 l": erster Teil steht auf dem Feld (grün wie die anderen Erträge), zweiter ist aus der Folgefrucht geplant (hellblau)
             local first = (item.now or 0) > 0 and string.format("%s", string.gsub(fmtLiters(item.now), " l$", "")) or "0"
-            setTextColor(unpack(self.colorTitle))
+            setTextColor(unpack((item.now or 0) > 0 and self.colorArea or self.colorSub))
             renderText(cols[2].x + 0.008, ry + rowH / 2, 0.013, first)
             local fw = getTextWidth(0.013, first)
             setTextColor(unpack(self.colorNoFruit))
@@ -9185,7 +9260,14 @@ function FieldListHUD:getHudRows()
                     txt = txt .. ": " .. tostring(e.fruitTitle)
                 end
                 if #items > 1 then txt = txt .. " (+)" end
-                table.insert(rows, { id = e.id, text = txt, harvest = best.harvest == true, prio = best.prio or 99 })
+                -- Ernte und Aussaat der Folgefrucht im selben Monat (keine Zwischenfrucht): höchste Priorität, steht immer ganz oben
+                local hasH, hasS = false, false
+                for _, it in ipairs(items) do
+                    if it.kind == "harvest" and it.harvest == true then hasH = true end
+                    if it.kind == "sow" then hasS = true end
+                end
+                local both = hasH and hasS
+                table.insert(rows, { id = e.id, text = txt, harvest = best.harvest == true, prio = both and 0 or (best.prio or 99), both = both })
             end
         end
     end)

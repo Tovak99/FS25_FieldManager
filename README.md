@@ -1,6 +1,6 @@
 # Feld Manager / Field Manager (FS25)
 
-**Version 1.1.4.11** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
+**Version 1.1.4.12** · Autor: Tovak · Mehrspielerfähig · Sprachen: Deutsch, Englisch
 
 Der Feld Manager fügt dem ESC-Menü des Landwirtschafts-Simulators 25 die Seite **Feld Manager** hinzu (direkt hinter dem Anbaukalender) und blendet auf Wunsch ein HUD-Fenster mit den offenen Arbeiten ein.
 
@@ -129,6 +129,13 @@ Field Manager adds a page to the pause menu and an optional in-game HUD window.
 - **HUD window:** transparent, movable and resizable, list of fields with pending work, tractor symbol; mouse toggle with Alt+F (rebindable)
 - **Options:** crop rotation harvest, assumed bonus for planned fields, HUD on/off, seasonal production on/off
 - **Multiplayer** supported; **languages:** German, English (more can be added with a single `l10n` file)
+
+## Änderungen 1.1.4.12
+- Wachstumsrechnung: Anzeige im Monat = Stand vor dem Schritt des Monats; Schnittfrüchte erst bei 4/4 erntereif
+- Planung: Folgefrucht ist ab der ersten möglichen Ernte frei und zählt schon dieses Jahr, wenn Aussaat und Ernte noch passen
+- Seite 1: geplanter Aussaat-/Erntemonat im Kalender kräftig markiert; Saatmonat wird pro Feld gespeichert
+- Ertragsplanung: Fermenter zeigt Bedarf und Erzeugung, Ertrag auf dem Feld auch bei geplantem Anteil grün
+- HUD: Ernte + Aussaat im selben Monat stehen bei Sortierung nach Priorität ganz oben
 
 ## Änderungen 1.1.4.11
 - Ertragsplanung: bei Aussaat im laufenden Monat zählt der Wachstumsschritt des Saatmonats mit (z. B. Mais im Mai wird noch dieses Jahr geerntet)

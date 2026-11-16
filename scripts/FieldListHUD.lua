@@ -4644,7 +4644,9 @@ function FieldListHUD:plannedHarvestAbs(fruitIndex, ab)
         end
     end
     if ps == nil then return nil end
-    return self:simHarvestAbs(ft, ses, ps, 1, false), ps
+    -- Frisch gesät steht die Frucht auf Stufe 1; der Schritt des Saatmonats steht noch aus (wie bei stehenden Früchten)
+    local qr = self:simHarvestAbs(ft, ses, ps, 1, true)
+    return qr, ps
 end
 
 function FieldListHUD:getHarvestOffset(fruitIndex, kind, state)

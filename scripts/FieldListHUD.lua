@@ -2937,6 +2937,8 @@ function FieldListHUD:drawDetail(d, entry)
     self:drawPlanButton(d.x + d.w - 0.17, secCurTop - 0.024, 0.17, 0.022, "left", "plan_one_btn")
     local _, ovIndex = self:getCurrentOverride(entry)
     local curRating = self:getCurrentRating(entry)
+    -- Leeres Feld ohne gewählte Frucht: keine Bewertung für die "aktuelle" (geerntete) Frucht anzeigen
+    if entry.fruitIndex == nil and ovIndex == nil then curRating = nil end
     -- Mais auf dem Feld: Körner oder Silage (Häckselgut) umschalten
     self.hitRects.curSilage = nil
     local recCS = self:getRecord(entry.id)
@@ -6710,6 +6712,42 @@ function FieldListHUD:drawFilterButtons(btns)
 end
 
 -- Seite 5 im Menü (intern 6): Erntekalender der saisonalen Früchte
+-- Besitzt der Spieler etwas, das diese Ware liefert? (eigene Produktionsstelle/Plantage oder eigenes Feld mit der Frucht)
+function FieldListHUD:getSeasonOwned()
+    local owned = {}
+    local SP = SeasonalProduction
+    local farmId = g_currentMission ~= nil and g_currentMission:getFarmId() or nil
+    if SP ~= nil and farmId ~= nil then
+        pcall(function()
+            for _, pp in ipairs(SP.getAllPoints()) do
+                local o = pp.ownerFarmId
+                if o == nil and pp.owningPlaceable ~= nil and pp.owningPlaceable.getOwnerFarmId ~= nil then o = pp.owningPlaceable:getOwnerFarmId() end
+                if o == farmId then
+                    local d = SP.classify(pp)
+                    -- nur echte Saison-Anlagen (Plantagen/Felder), keine Läden oder Lager mit vielen Waren
+                    if d.class == "seasonal" then
+                        if d.file ~= nil then owned["file:" .. string.lower(d.file)] = true end
+                        if d.main ~= nil then owned[d.main] = true end
+                    end
+                end
+            end
+        end)
+    end
+    pcall(function()
+        for _, e in ipairs(self.fields or {}) do
+            local fi = e.fruitIndex
+            if fi ~= nil then
+                local fillIdx = g_fruitTypeManager:getFillTypeIndexByFruitTypeIndex(fi)
+                local n = fillIdx ~= nil and g_fillTypeManager:getFillTypeNameByIndex(fillIdx) or nil
+                if n ~= nil then owned[n] = true end
+                local ft = g_fruitTypeManager:getFruitTypeByIndex(fi)
+                if ft ~= nil and ft.name ~= nil then owned[string.upper(ft.name)] = true end
+            end
+        end
+    end)
+    return owned
+end
+
 function FieldListHUD:getSeasonRows()
     if self.seasonRowsCache ~= nil then return self.seasonRowsCache end
     local rows = {}
@@ -6734,7 +6772,7 @@ function FieldListHUD:getSeasonRows()
             else
                 title = def.fill
             end
-            table.insert(rows, { title = title, icon = icon, season = season })
+            table.insert(rows, { title = title, icon = icon, season = season, fill = def.fill, file = def.file })
         end
     end
     if #rows > 0 then self.seasonRowsCache = rows end
@@ -6863,19 +6901,24 @@ function FieldListHUD:drawSeasonPage(L)
 
     local harvestC = { 0.757, 0.278, 0.051, 1 }
     local aspect = g_screenAspectRatio or (16 / 9)
-    local function drawBar(m1, m2, ry)
+    local function drawBar(m1, m2, ry, col)
+        col = col or harvestC
         local bx1 = gx + (m1 - 1) * cellW + 0.0012
         local bx2 = gx + m2 * cellW - 0.0012
         local bh = rowH * 0.28
         local by = ry + (rowH - bh) / 2
         local rx = bh / (2 * aspect)
-        self:drawRect(bx1 + rx * 0.7, by, (bx2 - bx1) - rx * 1.4, bh, harvestC)
-        self:drawRect(bx1 + rx * 0.25, by + bh * 0.14, (bx2 - bx1) - rx * 0.5, bh * 0.72, harvestC)
-        self:drawRect(bx1, by + bh * 0.30, (bx2 - bx1), bh * 0.40, harvestC)
+        self:drawRect(bx1 + rx * 0.7, by, (bx2 - bx1) - rx * 1.4, bh, col)
+        self:drawRect(bx1 + rx * 0.25, by + bh * 0.14, (bx2 - bx1) - rx * 0.5, bh * 0.72, col)
+        self:drawRect(bx1, by + bh * 0.30, (bx2 - bx1), bh * 0.40, col)
     end
+    local ownedMap = self:getSeasonOwned()
+    local grayC = { 0.45, 0.45, 0.45, 1 }
     for i, r in ipairs(rows) do
         local ry = top - headH - i * rowH
         if i % 2 == 0 then self:drawRect(x0 + 0.002, ry, w0 - 0.004, rowH, { 1, 1, 1, 0.04 }) end
+        local isOwned = (r.file == nil and ownedMap[r.fill or ""] == true) or (r.file ~= nil and ownedMap["file:" .. string.lower(r.file)] == true)
+        local barC = isOwned and harvestC or grayC
         -- Icon
         local ix, iy = x0 + 0.008, ry + (rowH - iconH) / 2
         self:drawRect(ix, iy, iconW, iconH, self.colorIcon)
@@ -6899,10 +6942,10 @@ function FieldListHUD:drawSeasonPage(L)
         -- Erntebalken: durchgehend, mit abgerundeten Enden, mittig in der Zeile (wie im Spielkalender)
         local p1, p2 = pos(r.season.from), pos(r.season.to)
         if p2 >= p1 then
-            drawBar(p1, p2, ry)
+            drawBar(p1, p2, ry, barC)
         else
-            drawBar(p1, 12, ry)
-            drawBar(1, p2, ry)
+            drawBar(p1, 12, ry, barC)
+            drawBar(1, p2, ry, barC)
         end
     end
 
@@ -6996,7 +7039,14 @@ function FieldListHUD:buildHarvestData(tab)
                     f.total = f.total + l
                     local act = isAct(id, name)
                     if act then f.active = true end
-                    f.fields[#f.fields + 1] = { id = id, area = e.area or 0, liters = l, ha = (merged["~" .. name] or 0) / 10000, active = act }
+                    local haM = merged["~" .. name] or 0
+                    if haM <= 0 and string.sub(name, 1, 3) == "WR_" and FieldListHUD.isStrawFillName(string.sub(name, 4)) then
+                        -- Stroh-Schwad hat keine eigene Flächenzählung: Fläche der Ernte auf diesem Feld verwenden
+                        for k2, v2 in pairs(merged) do
+                            if string.sub(k2, 1, 1) == "~" and string.sub(k2, 2, 4) ~= "WR_" and v2 > haM then haM = v2 end
+                        end
+                    end
+                    f.fields[#f.fields + 1] = { id = id, area = e.area or 0, liters = l, ha = haM / 10000, active = act }
                 end
             end
         end
@@ -8636,8 +8686,8 @@ function FieldListHUD.onTip(vehicle, delta, fillTypeIndex, sx, sz, ex, ez, dropp
         -- Gras-, Klee-, Luzerneschwad zählt unter der Frucht selbst (Ackergras-Schwad unter Gras)
         local ft = g_fruitTypeManager:getFruitTypeByName(fr)
         if ft ~= nil then FieldListHUD.addHarvestLiters(ft.index, dropped, x, z) end
-    elseif fname ~= nil and not FieldListHUD.isStrawFillName(string.upper(fname)) then
-        -- andere Schwad-Waren (Flachsschwad, Hanfschwad, ...) bekommen eine eigene Zeile
+    elseif fname ~= nil then
+        -- andere Schwad-Waren (Flachsschwad, Hanfschwad, Stroh, ...) bekommen eine eigene Zeile
         FieldListHUD.addHarvestLiters(nil, dropped, x, z, "WR_" .. string.upper(fname))
     end
 end

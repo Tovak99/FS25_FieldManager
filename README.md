@@ -130,6 +130,11 @@ Field Manager adds a page to the pause menu and an optional in-game HUD window.
 - **Options:** crop rotation harvest, assumed bonus for planned fields, HUD on/off, seasonal production on/off
 - **Multiplayer** supported; **languages:** German, English (more can be added with a single `l10n` file)
 
+## Änderungen 1.1.4.13
+- Seite 5: Stroh-Zeile mit Ertrag/ha
+- Leeres Feld: keine Bewertung bei "Aktuelle Frucht"
+- Seite 6 (Erntekalender): Balken grau, wenn keine eigene Plantage/Saison-Produktion für die Ware vorhanden ist
+
 ## Änderungen 1.1.4.12
 - Wachstumsrechnung: Anzeige im Monat = Stand vor dem Schritt des Monats; Schnittfrüchte erst bei 4/4 erntereif
 - Planung: Folgefrucht ist ab der ersten möglichen Ernte frei und zählt schon dieses Jahr, wenn Aussaat und Ernte noch passen

@@ -540,6 +540,162 @@ function FieldListHUD:getGroundText(entry)
 end
 
 -- Steine liegen in einer eigenen Karte; Abfrage über alle Teilflächen des Feldes (alle 5 s neu)
+-- Schwad und Ballen auf dem Feld: Schwad liegt in der Höhenkarte (Zellen des Feldes prüfen), Ballen sind Objekte in der Welt
+function FieldListHUD:getFieldPolygon(field, id)
+    self.polyCache = self.polyCache or {}
+    local c = self.polyCache[id]
+    if c ~= nil then return c end
+    local pts = field.polygonPoints
+    if type(pts) ~= "table" or #pts < 3 then return nil end
+    local px, pz = {}, {}
+    local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
+    for i = 1, #pts do
+        local x, _, z = getWorldTranslation(pts[i])
+        px[i], pz[i] = x, z
+        minX, maxX = math.min(minX, x), math.max(maxX, x)
+        minZ, maxZ = math.min(minZ, z), math.max(maxZ, z)
+    end
+    c = { px = px, pz = pz, minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }
+    c.inside = function(x, z)
+        local r = false
+        local j = #px
+        for i = 1, #px do
+            if (pz[i] > z) ~= (pz[j] > z) and x < (px[j] - px[i]) * (z - pz[i]) / (pz[j] - pz[i]) + px[i] then r = not r end
+            j = i
+        end
+        return r
+    end
+    self.polyCache[id] = c
+    return c
+end
+
+function FieldListHUD:getAllBales()
+    local now = g_time or 0
+    if self.baleList ~= nil and now - (self.baleListTime or 0) < 5000 then return self.baleList end
+    local list = {}
+    pcall(function()
+        local is = g_currentMission ~= nil and g_currentMission.itemSystem or nil
+        if is == nil or is.itemsToSave == nil or Bale == nil then return end
+        for _, v in pairs(is.itemsToSave) do
+            local b = v.item
+            if b ~= nil and b.isa ~= nil and b:isa(Bale) and b.nodeId ~= nil and b.nodeId ~= 0 then
+                local x, _, z = getWorldTranslation(b.nodeId)
+                local ftIdx = b.getFillType ~= nil and b:getFillType() or b.fillType
+                local fname = ftIdx ~= nil and g_fillTypeManager:getFillTypeNameByIndex(ftIdx) or nil
+                table.insert(list, { x = x, z = z, fill = fname })
+            end
+        end
+    end)
+    self.baleList, self.baleListTime = list, now
+    return list
+end
+
+-- Schwad ab dieser Menge je Hektar gilt als Arbeit (Reste am Rand zählen nicht)
+FieldListHUD.LOOSE_WINDROW_L_PER_HA = 1000
+
+-- Felder mit wachsender Frucht unterhalb der Erntestufe: dort kann kein Schwad/Ballen liegen (Schnittfrüchte nur unter Stufe 1: nach dem Mähen liegt das Schwad dort)
+-- Gibt die Frucht Schwad/Stroh? (auch Hülsenfrüchte wie Ackererbsen und Ackerbohnen, deren Stroh das Spiel anders ablegt)
+function FieldListHUD:fruitGivesSwath(ft)
+    if ft == nil then return false end
+    if (ft.windrowLiterPerSqm or 0) > 0 then return true end
+    local un = string.upper(ft.name or "")
+    if FieldListHUD.CUT_CROPS[un] or FieldListHUD.MULTI_CUT[un] or FieldListHUD.WINDROW_FRUITS[un] then return true end
+    if string.find(un, "PEA", 1, true) ~= nil or string.find(un, "BEAN", 1, true) ~= nil then return true end
+    local ok, fill = pcall(self.getFruitStrawFill, self, ft.index)
+    return ok and fill ~= nil
+end
+
+function FieldListHUD:looseSkippable(field)
+    local st = field.fieldState
+    if st == nil then return false end
+    local ft = (st.fruitTypeIndex ~= nil and st.fruitTypeIndex ~= 0) and g_fruitTypeManager:getFruitTypeByIndex(st.fruitTypeIndex) or nil
+    local gs = st.growthState
+    if ft == nil then
+        -- leeres Feld: die zuletzt gespeicherte Frucht entscheidet
+        local rec = self.store ~= nil and self.store[self:getFieldNumber(field)] or nil
+        if rec == nil or rec.cur == nil then return false end
+        local fr = g_fruitTypeManager:getFruitTypeByName(string.upper(rec.cur))
+        if fr == nil then return false end
+        return not self:fruitGivesSwath(fr)
+    end
+    local un = string.upper(ft.name or "")
+    local cut = FieldListHUD.CUT_CROPS[un] or FieldListHUD.MULTI_CUT[un] or FieldListHUD.WINDROW_FRUITS[un]
+    -- Früchte ohne Schwad (kein Stroh/Flachs/Gras): nichts zu sammeln
+    if not cut and not self:fruitGivesSwath(ft) then return true end
+    if gs == nil or gs < 1 then return false end
+    -- Schnittfrüchte: nach dem Mähen springt das Feld auf 5/4 (Stufe über der letzten Wachstumsstufe); nur dort liegt das Schwad.
+    -- Wachsend (1/4 bis 4/4) und gewalzt (6/4 und höher) ist keins mehr da
+    if cut then
+        local n = ft.numGrowthStates or 4
+        return gs ~= n + 1
+    end
+    local minS = FieldListHUD.harvestMinState(ft)
+    return minS ~= nil and gs < minS
+end
+
+function FieldListHUD:getLooseInfo(field, id)
+    self.looseCache = self.looseCache or {}
+    local now = g_time or 0
+    local c = self.looseCache[id]
+    -- Last verteilen: höchstens EIN Feld pro Durchlauf neu messen (auch das gewählte), Messung gilt 30 s
+    if self:looseSkippable(field) then
+        return { t = now, windrow = 0, bales = 0, baleNames = {} }
+    end
+    if id ~= self.looseTarget then
+        -- noch nicht an der Reihe: alte Messung oder vorerst "nichts"
+        return c or { t = 0, windrow = 0, bales = 0, baleNames = {} }
+    end
+    self.looseTarget = nil -- pro Durchlauf nur eine Messung
+    local res = { t = now, windrow = 0, windrowName = nil, bales = 0, baleNames = {} }
+    pcall(function()
+        local poly = self:getFieldPolygon(field, id)
+        if poly == nil then return end
+        -- Ballen
+        for _, b in ipairs(self:getAllBales()) do
+            if b.x >= poly.minX and b.x <= poly.maxX and b.z >= poly.minZ and b.z <= poly.maxZ and poly.inside(b.x, b.z) then
+                res.bales = res.bales + 1
+                if b.fill ~= nil then res.baleNames[b.fill] = (res.baleNames[b.fill] or 0) + 1 end
+            end
+        end
+        -- Schwad: Feld in Zellen aufteilen, pro Zelle Ware und Menge aus der Höhenkarte lesen
+        local U = DensityMapHeightUtil
+        if U == nil or U.getFillTypeAtArea == nil or U.getFillLevelAtArea == nil then return end
+        local step = math.max(4, math.sqrt((poly.maxX - poly.minX) * (poly.maxZ - poly.minZ) / 150))
+        local perType = {}
+        local x = poly.minX
+        while x < poly.maxX do
+            local z = poly.minZ
+            while z < poly.maxZ do
+                if poly.inside(x + step / 2, z + step / 2) then
+                    local ft = U.getFillTypeAtArea(x, z, x + step, z, x, z + step)
+                    if ft ~= nil and ft ~= FillType.UNKNOWN then
+                        local name = g_fillTypeManager:getFillTypeNameByIndex(ft)
+                        -- Schwad: alle *_WINDROW (Gras, Kleegras, Luzerne, Heu aller Sorten ...), Stroh und Hülsenfrucht-Stroh
+                        local un = string.upper(name or "")
+                        local legume = FieldListHUD.findLegumeStraw()
+                        if name ~= nil and (string.find(un, "WINDROW", 1, true) ~= nil or FieldListHUD.isStrawFillName(un)
+                            or (legume ~= nil and un == string.upper(legume))) then
+                            local lv = U.getFillLevelAtArea(ft, x, z, x + step, z, x, z + step) or 0
+                            if lv > 0 then perType[name] = (perType[name] or 0) + lv end
+                        end
+                    end
+                end
+                z = z + step
+            end
+            x = x + step
+        end
+        local best, bestL = nil, 0
+        for n, l in pairs(perType) do
+            if l > bestL then best, bestL = n, l end
+        end
+        if best ~= nil and bestL >= FieldListHUD.LOOSE_WINDROW_L_PER_HA * math.max(0.5, self:getFieldAreaHa(field) or 1) then
+            res.windrow, res.windrowName = bestL, best
+        end
+    end)
+    self.looseCache[id] = res
+    return res
+end
+
 function FieldListHUD:getStoneInfo(field, id)
     self.stoneCache = self.stoneCache or {}
     local now = g_time or 0
@@ -664,6 +820,10 @@ function FieldListHUD:buildEntry(field, light)
         if a ~= nil then
             entry.stone = a
         end
+        local li = self:getLooseInfo(field, entry.id)
+        if li ~= nil then
+            entry.looseWindrow, entry.looseWindrowName, entry.looseBales, entry.looseBaleNames = li.windrow, li.windrowName, li.bales, li.baleNames
+        end
     end
 
     if fruitType ~= nil then
@@ -770,6 +930,26 @@ function FieldListHUD:refreshFields()
         -- Erste Messung (und Tab-Öffnung) schnell, danach nur wenige Felder pro Durchlauf
         self.stoneBudget = self.stoneBoost and 100 or (self.stoneInitDone and 4 or 20)
         self.stoneBoost = false
+        -- Schwad-/Ballenmessung: pro Durchlauf nur das Feld mit der ältesten Messung (gewähltes Feld bevorzugt)
+        do
+            local nowL = g_time or 0
+            self.looseCache = self.looseCache or {}
+            local bestId, bestAge = nil, 0
+            for _, f in pairs(g_fieldManager:getFields()) do
+                local fid = self:getFieldNumber(f)
+                local fl = f.farmland
+                local ow = fl ~= nil and g_farmlandManager:getFarmlandOwner(fl.id) or nil
+                if ow ~= nil and ow == farmId and ow ~= (FarmlandManager.NO_OWNER_FARM_ID or 0) then
+                local cc = self.looseCache[fid]
+                if self:looseSkippable(f) then cc = { t = nowL } end
+                local age = cc ~= nil and (nowL - (cc.t or 0)) or 1e9
+                if fid == self.selectedId and age >= 10000 then age = age + 1e8 end
+                if age >= 30000 and age > bestAge then bestId, bestAge = fid, age end
+                if fid == self.selectedId and age >= 10000 + 1e8 then bestId, bestAge = fid, age end
+                end
+            end
+            self.looseTarget = bestId
+        end
         self.stoneDenied = 0
         for _, field in pairs(g_fieldManager:getFields()) do
             local farmland = field.farmland
@@ -886,7 +1066,9 @@ function FieldListHUD:getDisplayHist(entry)
         return {}
     end
     local hist = rec.hist or {}
-    if rec.cur ~= nil and not rec.manual and entry.fruitName == nil and not FieldListHUD.isCatchCrop(rec.cur) then
+    -- leeres Feld oder wachsende Zwischenfrucht (steht unter "Aktuell"): die letzte Hauptfrucht ist dann Vorfrucht 1
+    if rec.cur ~= nil and not rec.manual and (entry.fruitName == nil or FieldListHUD.isCatchCrop(entry.fruitName))
+        and not FieldListHUD.isCatchCrop(rec.cur) then
         local out = { rec.cur }
         for i, v in ipairs(hist) do out[i + 1] = v end
         return out
@@ -1450,6 +1632,17 @@ function FieldListHUD:getWorkItemsAll(entry)
         end
         table.insert(items, { prio = 3, kind = "stones", cell = string.format("%d %%", math.max(1, math.floor(100 * (entry.stone or 0) / math.max(1, entry.stoneTotal or 1) + 0.5))), text = T("work_stones") .. (#parts > 0 and table.concat(parts, ", ") or T("work_stones_present")),
                               short = T("work_stones_short") })
+    end
+    -- Schwad und Ballen liegen auf dem Feld: je eine eigene Arbeit (andere Maschinen)
+    if (entry.looseWindrow or 0) > 0 then
+        local ftl = g_fillTypeManager:getFillTypeByName(entry.looseWindrowName)
+        local nm = (ftl ~= nil and ftl.title) or entry.looseWindrowName
+        table.insert(items, { prio = 1.5, kind = "windrow", text = T("work_collect_windrow") .. nm .. string.format(" %d l", math.floor(entry.looseWindrow + 0.5)),
+                              short = T("work_collect_windrow_short") })
+    end
+    if (entry.looseBales or 0) > 0 then
+        table.insert(items, { prio = 1.6, kind = "bales", cell = string.format("%d %s", entry.looseBales, T("work_collect_bales_cell")), text = T("work_collect_bales_text") .. string.format("%d", entry.looseBales),
+                              short = T("work_collect_bales_short") })
     end
     -- Kalken geht nur auf leerem Feld oder bei frisch gesäter Frucht (Stufe 1); Düngen nicht mehr, sobald die Frucht erntereif ist
     local growing = entry.fruitIndex ~= nil and entry.growthState ~= nil and entry.growthState >= 1
@@ -3750,6 +3943,8 @@ end
 -- Seite "Arbeiten": Tabelle aller anstehenden Arbeiten je Feld (gleicher Filter wie Seite 1)
 FieldListHUD.WORK_COLS = {
     { kind = "harvest", key = "wk_col_harvest", green = true, f = 0.085 },
+    { kind = "windrow", key = "wk_col_windrow", f = 0.085 },
+    { kind = "bales",   key = "wk_col_bales",   f = 0.085 },
     { kind = "plow",    key = "wk_col_plow",    f = 0.085 },
     { kind = "stones",  key = "wk_col_stones",  f = 0.085 },
     { kind = "lime",    key = "wk_col_lime",    f = 0.085 },
@@ -5107,6 +5302,26 @@ function FieldListHUD:collectFruitTotals()
         table.insert(wrByFruit[w.fruit], r)
         table.insert(wrRows, r)
     end
+    -- Fruechte mit eigener Schwad-Ware (z. B. Leinsamen -> Flachsschwad): Zeile auch ohne Produktion mit Bedarf;
+    -- sie wird nur angezeigt, wenn Ertrag oder Lagerbestand vorhanden ist (siehe unten)
+    pcall(function()
+        for _, ftw in ipairs(g_fruitTypeManager:getFruitTypes()) do
+            local un = string.upper(ftw.name or "")
+            if not FieldListHUD.WINDROW_FRUITS[un] and (ftw.windrowLiterPerSqm or 0) > 0 and wrByFruit[un] == nil then
+                local okw, wi = pcall(function() return g_fruitTypeManager:getWindrowFillTypeIndexByFruitTypeIndex(ftw.index) end)
+                local wn = okw and wi ~= nil and g_fillTypeManager:getFillTypeNameByIndex(wi) or nil
+                if wn ~= nil and not FieldListHUD.isStrawFillName(string.upper(wn)) and (windrowDemand or {})[wn] == nil then
+                    local ftl = g_fillTypeManager:getFillTypeByName(wn)
+                    local r = { name = un, windrow = wn, isWindrow = true, autoRow = true, now = 0, planned = 0, nextYear = 0, in2 = 0,
+                        demand = 0, title = (ftl ~= nil and ftl.title) or wn,
+                        iconFilename = ftl ~= nil and ftl.hudOverlayFilename or nil }
+                    wrByFruit[un] = wrByFruit[un] or {}
+                    table.insert(wrByFruit[un], r)
+                    table.insert(wrRows, r)
+                end
+            end
+        end
+    end)
     local function windrowLiters(fruitIndex, areaHa, pct)
         local ft = fruitIndex ~= nil and g_fruitTypeManager:getFruitTypeByIndex(fruitIndex) or nil
         if ft == nil then return 0 end
@@ -5346,7 +5561,10 @@ function FieldListHUD:collectFruitTotals()
         table.insert(list, r)
     end
     for _, r in ipairs(wrRows) do
-        table.insert(list, r)
+        if not r.autoRow or (r.now or 0) + (r.planned or 0) + (r.nextYear or 0) + (r.in2 or 0) > 0
+            or (self:getRowStock(r) or 0) > 0 then
+            table.insert(list, r)
+        end
     end
     table.sort(list, function(a, b) return a.title < b.title end)
     -- Stroh (und Stroh-Sorten der Karte, z. B. Hülsenfrucht-Stroh) als zusätzliche Zeilen am Ende

@@ -39,6 +39,14 @@
         <text name="fl_stone_small" text="klein"/>
         <text name="fl_stone_medium" text="mittel"/>
         <text name="fl_stone_large" text="groß"/>
+        <text name="fl_work_collect_windrow_short" text="Schwad aufnehmen"/>
+        <text name="fl_work_collect_bales_short" text="Ballen sammeln"/>
+        <text name="fl_work_collect_windrow" text="Schwad aufnehmen: "/>
+        <text name="fl_work_collect_bales_text" text="Ballen einsammeln: "/>
+        <text name="fl_wk_col_windrow" text="SCHWAD"/>
+        <text name="fl_wk_col_bales" text="BALLEN"/>
+        <text name="fl_work_collect_windrow_cell" text="Schwad"/>
+        <text name="fl_work_collect_bales_cell" text="Ballen"/>
         <text name="fl_work_stones_short" text="Steine sammeln"/>
         <text name="fl_work_lime" text="Muss gekalkt werden"/>
         <text name="fl_work_lime_short" text="Kalken nötig"/>

@@ -39,6 +39,14 @@
         <text name="fl_stone_small" text="small"/>
         <text name="fl_stone_medium" text="medium"/>
         <text name="fl_stone_large" text="large"/>
+        <text name="fl_work_collect_windrow_short" text="Collect windrow"/>
+        <text name="fl_work_collect_bales_short" text="Collect bales"/>
+        <text name="fl_work_collect_windrow" text="Pick up windrow: "/>
+        <text name="fl_work_collect_bales_text" text="Collect bales: "/>
+        <text name="fl_wk_col_windrow" text="WINDROW"/>
+        <text name="fl_wk_col_bales" text="BALES"/>
+        <text name="fl_work_collect_windrow_cell" text="Windrow"/>
+        <text name="fl_work_collect_bales_cell" text="Bales"/>
         <text name="fl_work_stones_short" text="Pick stones"/>
         <text name="fl_work_lime" text="Must be limed"/>
         <text name="fl_work_lime_short" text="Liming needed"/>

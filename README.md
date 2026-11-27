@@ -130,6 +130,11 @@ Field Manager adds a page to the pause menu and an optional in-game HUD window.
 - **Options:** crop rotation harvest, assumed bonus for planned fields, HUD on/off, seasonal production on/off
 - **Multiplayer** supported; **languages:** German, English (more can be added with a single `l10n` file)
 
+## Änderungen 1.2.2.0
+- Schwad- und Steine-Messung laufen in kleinen Häppchen über viele Frames verteilt (keine Mikroruckler mehr)
+- Schwad-Prüfung: Hülsenfrucht-Stroh sowie Ackererbsen und Ackerbohnen werden erkannt
+- Arbeitstabelle: Spalte Unkraut zeigt nur noch die Größe, Schwad/Ballen als schlanke Markierung (Ballen mit Anzahl)
+
 ## Änderungen 1.2.1.0
 - Neue Arbeiten "Schwad" und "Ballen": Liegt Schwad (Gras, Kleegras, Luzerne, Heu, Stroh, Hülsenfrucht-Stroh, Flachs) oder liegen Ballen auf dem Feld, erscheinen sie als Arbeit direkt nach der Ernte (Spalten SCHWAD und BALLEN, HUD)
 - Die Prüfung ist lastarm: ein Feld pro Durchlauf, nur eigene Felder, nur Früchte mit Schwad im passenden Wachstumszustand

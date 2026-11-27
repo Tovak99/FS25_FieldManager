@@ -259,6 +259,8 @@ function FieldListHUD:deleteMap()
 end
 
 function FieldListHUD:update(dt)
+    self:stepStoneJob()
+    self:stepLooseJob()
     -- Liste einmal pro Sekunde neu aufbauen
     self.timer = self.timer - dt
     if self.timer <= 0 then
@@ -633,147 +635,169 @@ function FieldListHUD:looseSkippable(field)
     return minS ~= nil and gs < minS
 end
 
-function FieldListHUD:getLooseInfo(field, id)
-    self.looseCache = self.looseCache or {}
-    local now = g_time or 0
-    local c = self.looseCache[id]
-    -- Last verteilen: höchstens EIN Feld pro Durchlauf neu messen (auch das gewählte), Messung gilt 30 s
-    if self:looseSkippable(field) then
-        return { t = now, windrow = 0, bales = 0, baleNames = {} }
-    end
-    if id ~= self.looseTarget then
-        -- noch nicht an der Reihe: alte Messung oder vorerst "nichts"
-        return c or { t = 0, windrow = 0, bales = 0, baleNames = {} }
-    end
-    self.looseTarget = nil -- pro Durchlauf nur eine Messung
-    local res = { t = now, windrow = 0, windrowName = nil, bales = 0, baleNames = {} }
-    pcall(function()
-        local poly = self:getFieldPolygon(field, id)
-        if poly == nil then return end
-        -- Ballen
-        for _, b in ipairs(self:getAllBales()) do
-            if b.x >= poly.minX and b.x <= poly.maxX and b.z >= poly.minZ and b.z <= poly.maxZ and poly.inside(b.x, b.z) then
-                res.bales = res.bales + 1
-                if b.fill ~= nil then res.baleNames[b.fill] = (res.baleNames[b.fill] or 0) + 1 end
-            end
+-- Schwad-/Ballenmessung in kleinen Häppchen (je Frame nur wenige Zellen), damit es keine Ruckler gibt
+FieldListHUD.LOOSE_CELLS_PER_FRAME = 8
+
+function FieldListHUD:startLooseJob(field, id)
+    local poly = self:getFieldPolygon(field, id)
+    if poly == nil then return end
+    local step = math.max(4, math.sqrt((poly.maxX - poly.minX) * (poly.maxZ - poly.minZ) / 150))
+    self.looseJob = { id = id, poly = poly, step = step, x = poly.minX, z = poly.minZ, perType = {}, field = field }
+end
+
+function FieldListHUD:finishLooseJob(job)
+    local res = { t = g_time or 0, windrow = 0, windrowName = nil, bales = 0, baleNames = {} }
+    local poly = job.poly
+    for _, b in ipairs(self:getAllBales()) do
+        if b.x >= poly.minX and b.x <= poly.maxX and b.z >= poly.minZ and b.z <= poly.maxZ and poly.inside(b.x, b.z) then
+            res.bales = res.bales + 1
+            if b.fill ~= nil then res.baleNames[b.fill] = (res.baleNames[b.fill] or 0) + 1 end
         end
-        -- Schwad: Feld in Zellen aufteilen, pro Zelle Ware und Menge aus der Höhenkarte lesen
+    end
+    local best, bestL = nil, 0
+    for n, l in pairs(job.perType) do
+        if l > bestL then best, bestL = n, l end
+    end
+    if best ~= nil and bestL >= FieldListHUD.LOOSE_WINDROW_L_PER_HA * math.max(0.5, self:getFieldAreaHa(job.field) or 1) then
+        res.windrow, res.windrowName = bestL, best
+    end
+    self.looseCache[job.id] = res
+end
+
+function FieldListHUD:stepLooseJob()
+    local job = self.looseJob
+    if job == nil then return end
+    self.looseCache = self.looseCache or {}
+    local ok = pcall(function()
         local U = DensityMapHeightUtil
-        if U == nil or U.getFillTypeAtArea == nil or U.getFillLevelAtArea == nil then return end
-        local step = math.max(4, math.sqrt((poly.maxX - poly.minX) * (poly.maxZ - poly.minZ) / 150))
-        local perType = {}
-        local x = poly.minX
-        while x < poly.maxX do
-            local z = poly.minZ
-            while z < poly.maxZ do
-                if poly.inside(x + step / 2, z + step / 2) then
-                    local ft = U.getFillTypeAtArea(x, z, x + step, z, x, z + step)
-                    if ft ~= nil and ft ~= FillType.UNKNOWN then
-                        local name = g_fillTypeManager:getFillTypeNameByIndex(ft)
-                        -- Schwad: alle *_WINDROW (Gras, Kleegras, Luzerne, Heu aller Sorten ...), Stroh und Hülsenfrucht-Stroh
-                        local un = string.upper(name or "")
-                        local legume = FieldListHUD.findLegumeStraw()
-                        if name ~= nil and (string.find(un, "WINDROW", 1, true) ~= nil or FieldListHUD.isStrawFillName(un)
-                            or (legume ~= nil and un == string.upper(legume))) then
-                            local lv = U.getFillLevelAtArea(ft, x, z, x + step, z, x, z + step) or 0
-                            if lv > 0 then perType[name] = (perType[name] or 0) + lv end
-                        end
+        local poly, step = job.poly, job.step
+        local legume = FieldListHUD.findLegumeStraw()
+        for _ = 1, FieldListHUD.LOOSE_CELLS_PER_FRAME do
+            if job.x >= poly.maxX then
+                self:finishLooseJob(job)
+                self.looseJob = nil
+                return
+            end
+            local x, z = job.x, job.z
+            job.z = job.z + step
+            if job.z >= poly.maxZ then job.z = poly.minZ; job.x = job.x + step end
+            if U ~= nil and U.getFillTypeAtArea ~= nil and U.getFillLevelAtArea ~= nil and poly.inside(x + step / 2, z + step / 2) then
+                local ft = U.getFillTypeAtArea(x, z, x + step, z, x, z + step)
+                if ft ~= nil and ft ~= FillType.UNKNOWN then
+                    local name = g_fillTypeManager:getFillTypeNameByIndex(ft)
+                    local un = string.upper(name or "")
+                    -- Schwad: alle *_WINDROW (Gras, Kleegras, Luzerne, Heu aller Sorten ...), Stroh und Hülsenfrucht-Stroh
+                    if name ~= nil and (string.find(un, "WINDROW", 1, true) ~= nil or FieldListHUD.isStrawFillName(un)
+                        or (legume ~= nil and un == string.upper(legume))) then
+                        local lv = U.getFillLevelAtArea(ft, x, z, x + step, z, x, z + step) or 0
+                        if lv > 0 then job.perType[name] = (job.perType[name] or 0) + lv end
                     end
                 end
-                z = z + step
             end
-            x = x + step
-        end
-        local best, bestL = nil, 0
-        for n, l in pairs(perType) do
-            if l > bestL then best, bestL = n, l end
-        end
-        if best ~= nil and bestL >= FieldListHUD.LOOSE_WINDROW_L_PER_HA * math.max(0.5, self:getFieldAreaHa(field) or 1) then
-            res.windrow, res.windrowName = bestL, best
         end
     end)
-    self.looseCache[id] = res
-    return res
+    if not ok then self.looseJob = nil end
+end
+
+function FieldListHUD:getLooseInfo(field, id)
+    self.looseCache = self.looseCache or {}
+    local c = self.looseCache[id]
+    if self:looseSkippable(field) then
+        return { t = g_time or 0, windrow = 0, bales = 0, baleNames = {} }
+    end
+    if id == self.looseTarget and self.looseJob == nil then
+        self.looseTarget = nil
+        self.looseCache[id] = c or { t = 0, windrow = 0, bales = 0, baleNames = {} }
+        self.looseCache[id].t = g_time or 0 -- Messung läuft; gilt für die Auswahl als frisch
+        pcall(self.startLooseJob, self, field, id)
+    end
+    return c or { t = 0, windrow = 0, bales = 0, baleNames = {} }
+end
+
+-- Steine messen: in Häppchen über viele Frames verteilt (je Frame nur wenige Messpunkte), eine Warteschlange arbeitet die Felder ab
+FieldListHUD.STONE_POINTS_PER_FRAME = 100
+
+function FieldListHUD:startStoneJob(item)
+    local ss = g_currentMission ~= nil and g_currentMission.stoneSystem or nil
+    local poly = self:getFieldPolygon(item.field, item.id)
+    if ss == nil or ss.densityMap == nil or poly == nil then
+        self.stoneCache[item.id] = { t = g_time or 0, area = nil, total = nil, raw = "kein Steine-System oder keine Feldecken", counts = {} }
+        return nil
+    end
+    local step = math.max(3, math.sqrt((poly.maxX - poly.minX) * (poly.maxZ - poly.minZ) / 1500))
+    return { id = item.id, ss = ss, poly = poly, step = step, x = poly.minX + step / 2, z = poly.minZ + step / 2,
+             area = 0, total = 0, counts = {} }
+end
+
+function FieldListHUD:stepStoneJob()
+    self.stoneCache = self.stoneCache or {}
+    if self.stoneJob == nil then
+        local q = self.stoneQueue
+        if q == nil or #q == 0 then return end
+        local item = table.remove(q, 1)
+        self.stoneQueued[item.id] = nil
+        local okS, job = pcall(self.startStoneJob, self, item)
+        if not okS or job == nil then return end
+        self.stoneJob = job
+    end
+    local job = self.stoneJob
+    local ok, err = pcall(function()
+        local poly, step, ss = job.poly, job.step, job.ss
+        local n = 0
+        while n < FieldListHUD.STONE_POINTS_PER_FRAME do
+            if job.x >= poly.maxX then
+                self.stoneCache[job.id] = { t = g_time or 0, area = job.area, total = job.total,
+                    raw = string.format("Raster %.1f m, %d Punkte", step, job.total), counts = job.counts }
+                self.stoneJob = nil
+                return
+            end
+            local x, z = job.x, job.z
+            job.z = job.z + step
+            if job.z >= poly.maxZ then job.z = poly.minZ + step / 2; job.x = job.x + step end
+            n = n + 1
+            if poly.inside(x, z) then
+                job.total = job.total + 1
+                local v = getDensityAtWorldPos(ss.densityMap, x, 0, z)
+                if v ~= nil and v >= ss.minValue and v <= ss.maxValue then
+                    job.area = job.area + 1
+                    job.counts[v] = (job.counts[v] or 0) + 1
+                end
+            end
+        end
+    end)
+    if not ok then
+        self.stoneCache[job.id] = { t = g_time or 0, area = nil, total = nil, raw = "Fehler: " .. tostring(err), counts = {} }
+        self.stoneJob = nil
+    end
 end
 
 function FieldListHUD:getStoneInfo(field, id)
     self.stoneCache = self.stoneCache or {}
+    self.stoneQueue = self.stoneQueue or {}
+    self.stoneQueued = self.stoneQueued or {}
     local now = g_time or 0
     local c = self.stoneCache[id]
-    -- Steine ändern sich selten (Aufsammeln): alle 2 Minuten neu messen, höchstens wenige Felder pro Durchlauf (Last verteilen)
-    if c ~= nil and (now - (c.t or 0)) < 120000 then
+    -- Steine ändern sich selten (Aufsammeln): alle 2 Minuten neu messen
+    if c == nil or (now - (c.t or 0)) >= 120000 then
+        local running = self.stoneJob ~= nil and self.stoneJob.id == id
+        if not running and not self.stoneQueued[id] then
+            if id == self.selectedId then
+                -- das gewählte Feld kommt zuerst dran
+                table.insert(self.stoneQueue, 1, { id = id, field = field })
+                self.stoneQueued[id] = true
+            elseif (self.stoneBudget or 0) > 0 then
+                self.stoneBudget = self.stoneBudget - 1
+                table.insert(self.stoneQueue, { id = id, field = field })
+                self.stoneQueued[id] = true
+            else
+                self.stoneDenied = (self.stoneDenied or 0) + 1
+            end
+        end
+    end
+    if c ~= nil then
         return c.area, c.total, c.raw, c.counts
     end
-    -- Das gewählte Feld wird immer sofort gemessen (kein Warten auf die Verteilung)
-    if (self.stoneBudget or 0) <= 0 and id ~= self.selectedId then
-        self.stoneDenied = (self.stoneDenied or 0) + 1
-        if c ~= nil then
-            return c.area, c.total, c.raw, c.counts
-        end
-        return nil, nil, nil, {}
-    end
-    if id ~= self.selectedId then
-        self.stoneBudget = self.stoneBudget - 1
-    end
-
-    local area, total, raw, counts = nil, nil, nil, {}
-    local ok, err = pcall(function()
-        local ss = g_currentMission ~= nil and g_currentMission.stoneSystem or nil
-        local pts = field.polygonPoints
-        if ss == nil or ss.densityMap == nil or type(pts) ~= "table" or #pts < 3 then
-            raw = "kein Steine-System oder keine Feldecken"
-            return
-        end
-
-        -- Eckpunkte des Feldes in Weltkoordinaten
-        local px, pz = {}, {}
-        local minX, maxX, minZ, maxZ = math.huge, -math.huge, math.huge, -math.huge
-        for i = 1, #pts do
-            local x, _, z = getWorldTranslation(pts[i])
-            px[i], pz[i] = x, z
-            minX, maxX = math.min(minX, x), math.max(maxX, x)
-            minZ, maxZ = math.min(minZ, z), math.max(maxZ, z)
-        end
-
-        local function inside(x, z)
-            local c = false
-            local j = #px
-            for i = 1, #px do
-                if (pz[i] > z) ~= (pz[j] > z) and x < (px[j] - px[i]) * (z - pz[i]) / (pz[j] - pz[i]) + px[i] then
-                    c = not c
-                end
-                j = i
-            end
-            return c
-        end
-
-        -- Raster mit höchstens ca. 1500 Messpunkten über das Feld legen (einmal pro Seitenöffnung für alle Felder)
-        local step = math.max(3, math.sqrt((maxX - minX) * (maxZ - minZ) / 1500))
-        area, total = 0, 0
-        local x = minX + step / 2
-        while x < maxX do
-            local z = minZ + step / 2
-            while z < maxZ do
-                if inside(x, z) then
-                    total = total + 1
-                    local v = getDensityAtWorldPos(ss.densityMap, x, 0, z)
-                    if v ~= nil and v >= ss.minValue and v <= ss.maxValue then
-                        area = area + 1
-                        counts[v] = (counts[v] or 0) + 1
-                    end
-                end
-                z = z + step
-            end
-            x = x + step
-        end
-        raw = string.format("Raster %.1f m, %d Punkte", step, total)
-    end)
-    if not ok then
-        raw = "Fehler: " .. tostring(err)
-        area, total = nil, nil
-    end
-    self.stoneCache[id] = { t = now, area = area, total = total, raw = raw, counts = counts }
-    return area, total, raw, counts
+    return nil, nil, nil, {}
 end
 
 -- Erste erntereife Stufe. Bei manchen Früchten (Zuckerrüben: 8 Wachstumsstufen, Erntezustand 11) liegt der Wert hinter der
@@ -1666,7 +1690,7 @@ function FieldListHUD:getWorkItemsAll(entry)
     end
     if entry.weed ~= nil and entry.weed > 0 then
         local ws = FieldListHUD.weedSize(entry.weed)
-        table.insert(items, { prio = ws >= 3 and 3 or 6, kind = "weeds", cell = T("weed_cell_" .. ws), text = T("weed_" .. ws), short = T("weed_hud_" .. ws), cell2 = T("weed_hud_" .. ws) })
+        table.insert(items, { prio = ws >= 3 and 3 or 6, kind = "weeds", cell = T("weed_cell_" .. ws), text = T("weed_" .. ws), short = T("weed_hud_" .. ws) })
     end
     -- Geplante Zwischenfrucht (Ölrettich), noch nicht gesät: Arbeit, solange das Feld leer ist und das Saatfenster offen ist
     do
